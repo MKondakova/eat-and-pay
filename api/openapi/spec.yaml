@@ -1,0 +1,449 @@
+openapi: 3.0.3
+info:
+  title: Приложение для доставки еды
+  description: Приложение для доставки еды
+  version: 1.0.0
+servers:
+  - url: 'http://localhost:8080'
+
+security:
+  - bearerAuth: [ ]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserProfile:
+      type: object
+      required: [ name, phone, birthday ]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        birthday:
+          type: string
+          example: "01.01.1999"
+
+    Product:
+      type: object
+      required: [ id, name, price, weight, rating ]
+      properties:
+        id:
+          type: string
+        image:
+          type: string
+          format: uri
+        name:
+          type: string
+        weight:
+          type: number
+        price:
+          type: number
+        rating:
+          type: number
+          format: float
+        description:
+          type: string
+        isFavorite:
+          type: boolean
+        discount:
+          type: number
+          description: Размер скидки
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+
+    ProductPreview:
+      type: object
+      properties:
+        id:
+          type: string
+        image:
+          type: string
+        name:
+          type: string
+        weight:
+          type: number
+        price:
+          type: number
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        isFavorite:
+          type: boolean
+        discount:
+          type: number
+          description: Размер скидки
+
+
+    Review:
+      type: object
+      required: [ rating, author, createdAt, content ]
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        author:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        content:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        imageURL:
+          type: string
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        image:
+          type: string
+        name:
+          type: string
+        weight:
+          type: number
+        price:
+          type: number
+        quantity:
+          type: integer
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [ active, completed ]
+        deliveryDate:
+          type: string
+        address:
+          type: string
+        orderPrice:
+          type: number
+          description: Стоимость товаров в заказе
+        deliveryPrice:
+          type: number
+          description: Стоимость доставки
+        totalPrice:
+          type: number
+          description: Общая стоимость
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+
+    Address:
+      type: object
+      required: [ id, addressLine, coordinates ]
+      properties:
+        id:
+          type: string
+        coordinates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: number
+          description: "Массив [долгота, широта]"
+        addressLine:
+          type: string
+        floor:
+          type: string
+        entrance:
+          type: string
+        intercomCode:
+          type: string
+        comment:
+          type: string
+
+paths:
+  /users/me:
+    get:
+      summary: Получить профиль текущего пользователя
+      responses:
+        "200":
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    put:
+      summary: Обновить профиль
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ name, birthday ]
+              properties:
+                name:
+                  type: string
+                birthday:
+                  type: string
+                  example: "01.01.1999"
+      responses:
+        "200":
+          description: Успешно обновлено
+    delete:
+      summary: Удалить аккаунт
+      responses:
+        "200":
+          description: Аккаунт сброшен к настройкам по умолчанию
+
+  /logout:
+    post:
+      summary: Выйти из системы
+      responses:
+        "200":
+          description: Успешный выход
+
+  /products:
+    get:
+      summary: Список товаров
+      parameters:
+        - in: query
+          name: category
+          description: Будут показаны товары только этой категории
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Список товаров
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentPage:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductPreview"
+
+  /products/{id}:
+    get:
+      summary: Детальная информация о товаре
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Продукт
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}/favorite:
+    post:
+      summary: Добавить товар в избранное
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Товар добавлен
+    delete:
+      summary: Удалить товар из избранного
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Товар удалён
+
+  /categories:
+    get:
+      summary: Получить список категорий
+      responses:
+        "200":
+          description: Категории
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /cart:
+    get:
+      summary: Получить содержимое корзины
+      responses:
+        "200":
+          description: Корзина
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: "#/components/schemas/OrderItem"
+                    - type: object
+                      properties:
+                        available:
+                          type: boolean
+
+  /cart/add/{id}:
+    post:
+      summary: Добавить товар в корзину
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Количество товаров в корзине
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+
+  /cart/remove/{id}:
+    delete:
+      summary: Удалить товар из корзины
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Количество товаров в корзине
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+
+  /orders:
+    post:
+      summary: Создать новый заказ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentMethod:
+                  type: string
+      responses:
+        "200":
+          description: Заказ создан
+    get:
+      summary: Список заказов пользователя
+      responses:
+        "200":
+          description: Список заказов, отсортированных по статусу, а затем по времени заказа по убыванию
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /reviews:
+    post:
+      summary: Добавить отзыв
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Review"
+      responses:
+        "200":
+          description: Отзыв добавлен
+
+  /addresses:
+    get:
+      summary: Список адресов пользователя
+      responses:
+        "200":
+          description: Адреса
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Address"
+    post:
+      summary: Добавить новый адрес
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Address"
+      responses:
+        "200":
+          description: Адрес добавлен
+
+  /addresses/{id}:
+    put:
+      summary: Обновить адрес
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Address"
+      responses:
+        "200":
+          description: Адрес обновлен

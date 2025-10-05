@@ -31,7 +31,7 @@ components:
 
     Product:
       type: object
-      required: [ id, name, price, weight, rating ]
+      required: [ id, name, image, price, weight, rating, description, isFavorite ]
       properties:
         id:
           type: string
@@ -61,11 +61,13 @@ components:
 
     ProductPreview:
       type: object
+      required: [id, name, image, weight, price, rating, reviewCount, isFavorite]
       properties:
         id:
           type: string
         image:
           type: string
+          format: uri
         name:
           type: string
         weight:
@@ -74,6 +76,7 @@ components:
           type: number
         rating:
           type: number
+          format: float
         reviewCount:
           type: integer
         isFavorite:
@@ -105,9 +108,10 @@ components:
           type: string
         name:
           type: string
-        imageURL:
+        image:
           type: string
-      required: [id, name, imageURL]
+          format: uri
+      required: [id, name, image]
 
     OrderItem:
       type: object
@@ -322,6 +326,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [currentPage, totalPages, data]
                 properties:
                   currentPage:
                     type: integer

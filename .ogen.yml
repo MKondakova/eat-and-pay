@@ -1,0 +1,10 @@
+generator:
+  # sets generator features.
+  features:
+    disable:
+      # Enables paths client generation
+      - "paths/client"
+      # Enables validation of server responses
+      - "server/response/validation"
+      # Enables OpenTelemetry integration
+      - "ogen/otel"

@@ -1,8 +1,13 @@
 package service
 
+//go:generate mockgen -destination=products_mock.go -source=products.go -package=service
+
 import (
 	"cmp"
 	"context"
+	"eats-backend/internal/models"
+	"errors"
+	"fmt"
 	"maps"
 	"math"
 	"slices"
@@ -10,38 +15,48 @@ import (
 	api "eats-backend/api/generated"
 )
 
+type UserService interface {
+	IsFavourite(ctx context.Context, productID string) bool
+	AddFavourite(ctx context.Context, id string)
+	RemoveFavourite(ctx context.Context, id string)
+}
+
 const defaultPageSize = 20
 
 type ProductsService struct {
 	api.UnimplementedHandler
 
-	products            []*api.Product
-	productsPerCategory map[string][]*api.Product
-	productIndex        map[string]*api.Product
+	userService UserService
 
-	categories map[string]api.Category
+	products            []*models.Product
+	productsPerCategory map[string][]*models.Product
+	productIndex        map[string]*models.Product
+
+	categories map[string]models.Category
 }
 
 func NewProductsService(
-	products []*api.Product,
+	userService UserService,
+	products []*models.Product,
 	productIDsPerCategory map[string][]string,
-	categories map[string]api.Category,
+	categories map[string]models.Category,
 ) *ProductsService {
-	index := make(map[string]*api.Product, len(products))
+	index := make(map[string]*models.Product, len(products))
 
 	for i := range products {
 		index[products[i].ID] = products[i]
 	}
 
-	productsPerCategory := make(map[string][]*api.Product)
+	productsPerCategory := make(map[string][]*models.Product)
 	for category, IDs := range productIDsPerCategory {
-		productsPerCategory[category] = make([]*api.Product, len(IDs))
+		productsPerCategory[category] = make([]*models.Product, len(IDs))
 		for i, ID := range IDs {
 			productsPerCategory[category][i] = index[ID]
 		}
 	}
 
 	return &ProductsService{
+		userService:         userService,
 		products:            products,
 		productIndex:        index,
 		categories:          categories,
@@ -49,32 +64,20 @@ func NewProductsService(
 	}
 }
 
-func (s *ProductsService) CategoriesGet(_ context.Context) (api.CategoriesGetRes, error) {
-	categories := slices.SortedFunc(maps.Values(s.categories), func(a api.Category, b api.Category) int {
+func (s *ProductsService) GetCategories() []models.Category {
+	categories := slices.SortedFunc(maps.Values(s.categories), func(a models.Category, b models.Category) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
 
-	result := api.CategoriesGetOKApplicationJSON(categories)
-
-	return &result, nil
+	return categories
 }
 
-func (s *ProductsService) ProductsGet(_ context.Context, params api.ProductsGetParams) (api.ProductsGetRes, error) {
-	page, ok := params.Page.Get()
-	if !ok {
-		page = 1
-	}
-
-	pageSize, ok := params.PageSize.Get()
-	if !ok {
-		pageSize = defaultPageSize
-	}
-
+func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize int, category string) (models.ProductsList, error) {
 	products := s.products
 
-	if category, ok := params.Category.Get(); ok {
+	if category != "" {
 		if _, categoryExists := s.categories[category]; !categoryExists {
-			return new(api.ProductsGetBadRequest), nil
+			return models.ProductsList{}, errors.New("category not found")
 		}
 
 		products = s.productsPerCategory[category]
@@ -87,7 +90,7 @@ func (s *ProductsService) ProductsGet(_ context.Context, params api.ProductsGetP
 	paginationStart := (page - 1) * defaultPageSize
 
 	if paginationStart >= productsAmount {
-		return &api.ProductsGetOK{
+		return models.ProductsList{
 			CurrentPage: page,
 			TotalPages:  totalPages,
 			Data:        nil,
@@ -100,26 +103,53 @@ func (s *ProductsService) ProductsGet(_ context.Context, params api.ProductsGetP
 	}
 
 	listLen := paginationEnd - paginationStart
-	result := make([]api.ProductPreview, 0, listLen)
+	result := make([]models.ProductPreview, 0, listLen)
 
 	for i := paginationStart; i < paginationEnd; i++ {
 		product := products[i]
-		result = append(result, api.ProductPreview{
-			ID:          product.ID,
-			Image:       product.Image,
-			Name:        product.Name,
-			Weight:      product.Weight,
-			Price:       product.Price,
-			Rating:      product.Rating,
-			ReviewCount: len(product.Reviews),
-			IsFavorite:  false, // todo: depends on user
-			Discount:    product.Discount,
-		})
+		preview := product.ToPreview()
+		preview.IsFavorite = s.userService.IsFavourite(ctx, product.ID)
+
+		result = append(result, preview)
 	}
 
-	return &api.ProductsGetOK{
+	return models.ProductsList{
 		CurrentPage: page,
 		TotalPages:  totalPages,
 		Data:        result,
 	}, nil
+}
+
+func (s *ProductsService) GetProductByID(ctx context.Context, id string) (models.Product, error) {
+	productLink, ok := s.productIndex[id]
+	if !ok {
+		return models.Product{}, fmt.Errorf("%w: no such product", models.ErrNotFound)
+	}
+
+	product := *productLink
+	product.IsFavorite = s.userService.IsFavourite(ctx, product.ID)
+
+	return product, nil
+}
+
+func (s *ProductsService) AddFavourite(ctx context.Context, id string) error {
+	_, ok := s.productIndex[id]
+	if !ok {
+		return fmt.Errorf("%w: no such product", models.ErrNotFound)
+	}
+
+	s.userService.AddFavourite(ctx, id)
+
+	return nil
+}
+
+func (s *ProductsService) RemoveFavourite(ctx context.Context, id string) error {
+	_, ok := s.productIndex[id]
+	if !ok {
+		return fmt.Errorf("%w: no such product", models.ErrNotFound)
+	}
+
+	s.userService.RemoveFavourite(ctx, id)
+
+	return nil
 }

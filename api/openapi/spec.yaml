@@ -183,6 +183,7 @@ components:
 
     ErrorResponse:
       type: object
+      required: [message]
       properties:
         message:
           type: string
@@ -240,7 +241,6 @@ paths:
   /users/me:
     get:
       summary: Получить профиль текущего пользователя
-      x-ogen-operation-group: Users
       responses:
         "200":
           description: Профиль пользователя
@@ -254,7 +254,6 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     put:
       summary: Обновить профиль
-      x-ogen-operation-group: Users
       requestBody:
         required: true
         content:
@@ -279,7 +278,6 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     delete:
       summary: Удалить аккаунт
-      x-ogen-operation-group: Users
       responses:
         "200":
           description: Аккаунт сброшен к настройкам по умолчанию
@@ -291,7 +289,6 @@ paths:
   /logout:
     post:
       summary: Выйти из системы
-      x-ogen-operation-group: Users
       responses:
         "200":
           description: Успешный выход
@@ -303,7 +300,6 @@ paths:
   /products:
     get:
       summary: Список товаров
-      x-ogen-operation-group: Products
       parameters:
         - in: query
           name: category
@@ -315,10 +311,13 @@ paths:
           schema:
             type: integer
             minimum: 1
+            default: 1
         - in: query
           name: pageSize
           schema:
             type: integer
+            minimum: 1
+            default: 20
       responses:
         "200":
           description: Список товаров
@@ -346,7 +345,6 @@ paths:
   /products/{id}:
     get:
       summary: Детальная информация о товаре
-      x-ogen-operation-group: Products
       parameters:
         - in: path
           name: id
@@ -370,7 +368,6 @@ paths:
   /products/{id}/favorite:
     post:
       summary: Добавить товар в избранное
-      x-ogen-operation-group: Products
       parameters:
         - in: path
           name: id
@@ -388,7 +385,6 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     delete:
       summary: Удалить товар из избранного
-      x-ogen-operation-group: Products
       parameters:
         - in: path
           name: id
@@ -407,7 +403,6 @@ paths:
   /products/{id}/reviews:
     post:
       summary: Добавить отзыв
-      x-ogen-operation-group: Reviews
       parameters:
         - in: path
           name: id
@@ -433,7 +428,6 @@ paths:
   /categories:
     get:
       summary: Получить список категорий
-      x-ogen-operation-group: Products
       responses:
         "200":
           description: Категории
@@ -451,7 +445,6 @@ paths:
   /cart:
     get:
       summary: Получить содержимое корзины
-      x-ogen-operation-group: Cart
       responses:
         "200":
           description: Корзина
@@ -489,7 +482,6 @@ paths:
   /cart/items:
     post:
       summary: Добавить товар в корзину
-      x-ogen-operation-group: Cart
       parameters:
         - in: query
           name: id
@@ -516,7 +508,6 @@ paths:
   /cart/items/{id}:
     delete:
       summary: Удалить товар из корзины
-      x-ogen-operation-group: Cart
       parameters:
         - in: path
           name: id
@@ -543,7 +534,6 @@ paths:
   /orders:
     post:
       summary: Создать новый заказ
-      x-ogen-operation-group: Cart
       requestBody:
         required: true
         content:
@@ -564,7 +554,6 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     get:
       summary: Список заказов пользователя
-      x-ogen-operation-group: Orders
       responses:
         "200":
           description: Список заказов, отсортированных по статусу, а затем по времени заказа по убыванию
@@ -581,7 +570,6 @@ paths:
   /addresses:
     get:
       summary: Список адресов пользователя
-      x-ogen-operation-group: Users
       responses:
         "200":
           description: Адреса
@@ -597,7 +585,6 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       summary: Добавить новый адрес
-      x-ogen-operation-group: Users
       requestBody:
         required: true
         content:
@@ -617,7 +604,6 @@ paths:
   /addresses/{id}:
     put:
       summary: Обновить адрес
-      x-ogen-operation-group: Users
       parameters:
         - in: path
           name: id

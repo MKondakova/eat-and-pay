@@ -1,3 +1,4 @@
 /vendor/
 /api/generated
 .idea
+/data/uploads

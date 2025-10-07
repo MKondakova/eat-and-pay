@@ -28,6 +28,9 @@ components:
         birthday:
           type: string
           example: "01.01.1999"
+        imageUrl:
+          type: string
+          format: uri
 
     Product:
       type: object
@@ -115,6 +118,7 @@ components:
 
     OrderItem:
       type: object
+      required: [id, image, name, weight, price, quantity]
       properties:
         id:
           type: string
@@ -131,6 +135,7 @@ components:
 
     Order:
       type: object
+      required: [id, status, deliveryDate, address, orderPrice, deliveryPrice, totalPrice, totalItems, items]
       properties:
         id:
           type: string
@@ -159,10 +164,8 @@ components:
 
     Address:
       type: object
-      required: [ id, addressLine, coordinates ]
+      required: [ addressLine, coordinates ]
       properties:
-        id:
-          type: string
         coordinates:
           type: array
           minItems: 2
@@ -183,9 +186,9 @@ components:
 
     ErrorResponse:
       type: object
-      required: [message]
+      required: [error]
       properties:
-        message:
+        error:
           type: string
           example: Unauthorized
 
@@ -197,7 +200,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            message:
+            error:
               "Unauthorized"
     "403":
       description: Операция запрещена
@@ -206,7 +209,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            message: "GetProductByID: forbidden: product is not removable"
+            error: "GetProductByID: forbidden: product is not removable"
 
     "404":
       description: Искомый объект не найден
@@ -215,7 +218,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            message: "GetProductByID: not found: product ab936e-9155-43d4-aaf7-6dacbdc668ce\
+            error: "GetProductByID: not found: product ab936e-9155-43d4-aaf7-6dacbdc668ce\
             \ not found"
 
     BadRequestError:
@@ -225,7 +228,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            message: Bad request
+            error: Bad request
 
     InternalServerError:
       description: Внутренняя ошибка сервера
@@ -234,7 +237,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
-            message:
+            error:
               Internal error
 
 paths:
@@ -260,13 +263,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [ name, birthday ]
+              required: [ name, birthday, imageUri ]
               properties:
                 name:
                   type: string
                 birthday:
                   type: string
                   example: "01.01.1999"
+                imageUri:
+                  type: string
       responses:
         "200":
           description: Успешно обновлено
@@ -451,6 +456,7 @@ paths:
           content:
             application/json:
               schema:
+                required: [deliveryTime, orderPrice, deliveryPrice, totalPrice, items]
                 type: object
                 properties:
                   deliveryTime:
@@ -471,6 +477,7 @@ paths:
                       allOf:
                         - $ref: "#/components/schemas/OrderItem"
                         - type: object
+                          required: [available]
                           properties:
                             available:
                               type: boolean
@@ -495,6 +502,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [total]
                 properties:
                   total:
                     type: integer
@@ -578,7 +586,15 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Address"
+                  type: object
+                  required: [id, addressLine, coordinates]
+                  allOf:
+                    - $ref: "#/components/schemas/Address"
+                    - type: object
+                      properties:
+                        id:
+                          type: string
+
         "401":
           $ref: "#/components/responses/401"
         default:
@@ -621,6 +637,23 @@ paths:
           description: Адрес обновлен
         "400":
           $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      summary: Удалить адрес
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Адрес удален
         "401":
           $ref: "#/components/responses/401"
         "404":

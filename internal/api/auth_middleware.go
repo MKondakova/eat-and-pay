@@ -56,9 +56,11 @@ func (m *AuthMiddleware) JWTAuth(next http.HandlerFunc) http.HandlerFunc {
 
 			var errRes error
 			if errors.Is(err, errForbidden) {
-				_, errRes = response.Write([]byte(`403 Forbidden\n`))
+				response.WriteHeader(http.StatusForbidden)
+				_, errRes = response.Write([]byte(`{"error": "forbidden"}`))
 			} else {
-				_, errRes = response.Write([]byte(`401 Unauthorized\n`))
+				response.WriteHeader(http.StatusUnauthorized)
+				_, errRes = response.Write([]byte(`{"error": "unauthorized"}`))
 			}
 
 			if errRes != nil {

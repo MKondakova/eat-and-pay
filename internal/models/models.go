@@ -31,6 +31,12 @@ type Review struct {
 	Images    []string  `json:"images"`
 }
 
+type PostReviewRequest struct {
+	Rating  int      `json:"rating"`
+	Content string   `json:"content"`
+	Images  []string `json:"images"`
+}
+
 type ProductPageInfo struct {
 	ID                string  `json:"id"`
 	Name              string  `json:"name"`
@@ -95,4 +101,86 @@ func ClaimsFromContext(ctx context.Context) *AuthTokenClaims {
 	claims, _ := ctx.Value(ContextClaimsKey{}).(*AuthTokenClaims)
 
 	return claims
+}
+
+type UserProfile struct {
+	Phone    string `json:"phone"`
+	Name     string `json:"name"`
+	Birthday string `json:"birthday"`
+	Image    string `json:"imageUri"`
+}
+
+type UpdateUserRequest struct {
+	Name     string `json:"name"`
+	Birthday string `json:"birthday"`
+	Image    string `json:"imageUri"`
+}
+
+type Address struct {
+	ID string `json:"id"`
+	// Массив [долгота, широта].
+	Coordinates  []float64 `json:"coordinates"`
+	AddressLine  string    `json:"addressLine"`
+	Floor        string    `json:"floor"`
+	Entrance     string    `json:"entrance"`
+	IntercomCode string    `json:"intercomCode"`
+	Comment      string    `json:"comment"`
+}
+
+type OrderStatus string
+
+const (
+	OrderStatusActive    OrderStatus = "active"
+	OrderStatusCompleted OrderStatus = "completed"
+)
+
+type Order struct {
+	ID           string      `json:"id"`
+	Status       OrderStatus `json:"status"`
+	DeliveryDate string      `json:"deliveryDate"`
+	Address      string      `json:"address"`
+	// Стоимость товаров в заказе.
+	OrderPrice float64 `json:"orderPrice"`
+	// Стоимость доставки.
+	DeliveryPrice float64 `json:"deliveryPrice"`
+	// Общая стоимость.
+	TotalPrice float64     `json:"totalPrice"`
+	TotalItems int         `json:"totalItems"`
+	Items      []OrderItem `json:"items"`
+}
+
+type OrderItem struct {
+	ID       string  `json:"id"`
+	Image    string  `json:"image"`
+	Name     string  `json:"name"`
+	Weight   float64 `json:"weight"`
+	Price    float64 `json:"price"`
+	Quantity int     `json:"quantity"`
+}
+
+type CartResponse struct {
+	// Сколько минут займет доставка.
+	DeliveryTime int `json:"deliveryTime"`
+	// Стоимость товаров в заказе.
+	OrderPrice float64 `json:"orderPrice"`
+	// Стоимость доставки.
+	DeliveryPrice float64 `json:"deliveryPrice"`
+	// Общая стоимость.
+	TotalPrice float64             `json:"totalPrice"`
+	Items      []CartResponseItems `json:"items"`
+}
+
+type CartResponseItems struct {
+	ProductID string  `json:"id"`
+	Image     string  `json:"image"`
+	Name      string  `json:"name"`
+	Weight    float64 `json:"weight"`
+	Price     float64 `json:"price"`
+	Quantity  int     `json:"quantity"`
+	Available bool    `json:"available"`
+}
+
+type CartItems struct {
+	ProductID string `json:"id"`
+	Quantity  int    `json:"quantity"`
 }

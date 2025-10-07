@@ -21,6 +21,7 @@ type Application struct {
 
 	productService *service.ProductsService
 	tokenService   *service.TokenService
+	userData       *service.UserData
 	fileSaver      *storage.Storage
 	logger         *zap.SugaredLogger
 
@@ -140,9 +141,10 @@ func (a *Application) initLogger() error {
 }
 
 func (a *Application) initServices() error {
-	userData := service.NewUserData()
+	a.userData = service.NewUserData()
 	a.fileSaver = storage.NewStorage(a.logger, "data/uploads")
-	a.productService = service.NewProductsService(userData,
+	a.productService = service.NewProductsService(
+		a.userData,
 		[]*models.Product{
 			{
 				ID:          "ff25265d-9dfc-49c3-bd01-678c6baa001f",
@@ -163,7 +165,8 @@ func (a *Application) initServices() error {
 				Name:  "Любимое",
 				Image: "https://basket-01.wbbasket.ru/vol100/part10039/10039442/images/big/1.webp",
 			},
-		})
+		},
+	)
 
 	a.tokenService = service.NewTokenService(a.cfg.PrivateKey, a.cfg.CreatedTokensPath)
 
@@ -176,6 +179,7 @@ func (a *Application) initRouter(ctx context.Context) error {
 	router := api.NewRouter(
 		a.cfg.ServerOpts,
 		a.productService,
+		a.userData,
 		a.tokenService,
 		a.fileSaver,
 		authMiddleware,

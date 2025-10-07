@@ -2,66 +2,91 @@ package service
 
 import (
 	"context"
-	"eats-backend/internal/models"
+	"fmt"
+	"net/url"
+	"strings"
 	"sync"
+	"time"
+
+	"eats-backend/internal/models"
 )
 
 type UserData struct {
-	favourites map[string]map[string]struct{}
+	profileInfo map[string]*models.UserProfile
 
 	mux sync.Mutex
 }
 
 func NewUserData() *UserData {
-	return &UserData{
-		favourites: make(map[string]map[string]struct{}),
+	result := &UserData{
+		profileInfo: make(map[string]*models.UserProfile),
 	}
+
+	result.profileInfo["4479081e-fd93-499c-bf8b-1ad190b052e6"] = &models.UserProfile{Phone: "123123"}
+
+	return result
 }
 
-func (s *UserData) IsFavourite(ctx context.Context, id string) bool {
+func (s *UserData) GetProfile(ctx context.Context) (*models.UserProfile, error) {
 	userID := models.ClaimsFromContext(ctx).ID
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if _, ok := s.favourites[userID]; !ok {
-		s.favourites[userID] = make(map[string]struct{})
-
-		return false
+	if profile, ok := s.profileInfo[userID]; ok {
+		return profile, nil
 	}
 
-	_, has := s.favourites[userID][id]
-
-	return has
+	return nil, fmt.Errorf("%w: profile not found", models.ErrForbidden)
 }
 
-func (s *UserData) AddFavourite(ctx context.Context, id string) {
+func (s *UserData) UpdateProfile(ctx context.Context, data models.UpdateUserRequest) error {
+	userID := models.ClaimsFromContext(ctx).ID
+
+	name := strings.TrimSpace(data.Name)
+
+	birthday, err := parseBirthday(data.Birthday)
+	if err != nil {
+		return err
+	}
+
+	if _, err = url.ParseRequestURI(data.Image); err != nil {
+		return fmt.Errorf("%w: invalid image url: %w", models.ErrBadRequest, err)
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	s.profileInfo[userID].Name = name
+	s.profileInfo[userID].Birthday = birthday
+	s.profileInfo[userID].Image = data.Image
+
+	return nil
+}
+
+func (s *UserData) DeleteProfile(ctx context.Context) error {
 	userID := models.ClaimsFromContext(ctx).ID
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if _, ok := s.favourites[userID]; !ok {
-		s.favourites[userID] = make(map[string]struct{})
-	}
+	s.profileInfo[userID].Name = ""
+	s.profileInfo[userID].Birthday = ""
+	s.profileInfo[userID].Image = ""
 
-	_, has := s.favourites[userID][id]
-	if has {
-		return
-	}
-
-	s.favourites[userID][id] = struct{}{}
+	return nil
 }
 
-func (s *UserData) RemoveFavourite(ctx context.Context, id string) {
-	userID := models.ClaimsFromContext(ctx).ID
+func parseBirthday(birthday string) (string, error) {
+	birthday = strings.TrimSpace(birthday)
 
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if _, ok := s.favourites[userID]; !ok {
-		return
+	if birthday == "" {
+		return "", nil
 	}
 
-	delete(s.favourites[userID], id)
+	if _, err := time.Parse("02.01.2006", birthday); err != nil {
+		return "", fmt.Errorf("%w: wrong birthday format, should be 02.01.2006", models.ErrBadRequest)
+	}
+
+	return birthday, nil
 }

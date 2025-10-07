@@ -26,6 +26,16 @@ type FileSaver interface {
 	SaveFile(w http.ResponseWriter, r *http.Request)
 }
 
+type UserData interface {
+	GetProfile(ctx context.Context) (*models.UserProfile, error)
+	UpdateProfile(ctx context.Context, data models.UpdateUserRequest) error
+	DeleteProfile(ctx context.Context) error
+	GetAddresses(ctx context.Context) []*models.Address
+	AddAddress(ctx context.Context, address *models.Address) error
+	RemoveAddress(ctx context.Context, addressID string) error
+	UpdateAddress(ctx context.Context, newAddress *models.Address) error
+}
+
 type ProductsService interface {
 	GetProductsList(ctx context.Context, page, pageSize int, category string) (models.ProductsList, error)
 	GetProductByID(ctx context.Context, id string) (models.Product, error)
@@ -43,6 +53,7 @@ type Router struct {
 	router *http.ServeMux
 
 	productsService ProductsService
+	userData        UserData
 	tokenService    TokenService
 	fileSaver       FileSaver
 
@@ -52,6 +63,7 @@ type Router struct {
 func NewRouter(
 	cfg config.ServerOpts,
 	productsService ProductsService,
+	userData UserData,
 	tokenService TokenService,
 	fileSaver FileSaver,
 	authMiddleware func(next http.HandlerFunc) http.HandlerFunc,
@@ -69,15 +81,16 @@ func NewRouter(
 		router:          innerRouter,
 		productsService: productsService,
 		tokenService:    tokenService,
+		userData:        userData,
 		logger:          logger,
 		fileSaver:       fileSaver,
 	}
 
-	innerRouter.HandleFunc("GET /users/me", authMiddleware(nil))
-	innerRouter.HandleFunc("PUT /users/me", authMiddleware(nil))
-	innerRouter.HandleFunc("DELETE /users/me", authMiddleware(nil))
+	innerRouter.HandleFunc("GET /users/me", authMiddleware(appRouter.getUser))
+	innerRouter.HandleFunc("PUT /users/me", authMiddleware(appRouter.updateProfile))
+	innerRouter.HandleFunc("DELETE /users/me", authMiddleware(appRouter.deleteUser))
 
-	innerRouter.HandleFunc("POST /logout", authMiddleware(nil))
+	innerRouter.HandleFunc("POST /logout", authMiddleware(appRouter.logout))
 
 	innerRouter.HandleFunc("GET /products", authMiddleware(appRouter.getProductsList))
 	innerRouter.HandleFunc("GET /products/{id}", authMiddleware(appRouter.getProductByID))
@@ -85,7 +98,7 @@ func NewRouter(
 	innerRouter.HandleFunc("POST /products/{id}/favourite", authMiddleware(appRouter.addFavourite))
 	innerRouter.HandleFunc("DELETE /products/{id}/favourite", authMiddleware(appRouter.deleteFavourite))
 
-	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(nil))
+	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(nil)) //todo: today
 
 	innerRouter.HandleFunc("GET /categories", authMiddleware(appRouter.getCategories))
 
@@ -96,9 +109,10 @@ func NewRouter(
 	innerRouter.HandleFunc("GET /orders", authMiddleware(nil))
 	innerRouter.HandleFunc("POST /orders", authMiddleware(nil))
 
-	innerRouter.HandleFunc("GET /addresses", authMiddleware(nil))
-	innerRouter.HandleFunc("POST /addresses", authMiddleware(nil))
-	innerRouter.HandleFunc("PUT /addresses/{id}", authMiddleware(nil))
+	innerRouter.HandleFunc("GET /addresses", authMiddleware(appRouter.getAddresses))
+	innerRouter.HandleFunc("POST /addresses", authMiddleware(appRouter.addAddress))
+	innerRouter.HandleFunc("PUT /addresses/{id}", authMiddleware(appRouter.updateAddress))
+	innerRouter.HandleFunc("DELETE /addresses/{id}", authMiddleware(appRouter.deleteAddress))
 
 	innerRouter.HandleFunc("POST /createToken", authMiddleware(appRouter.createToken))
 	innerRouter.HandleFunc("POST /createTeacherToken", authMiddleware(appRouter.createTeacherToken))
@@ -179,7 +193,15 @@ func (r *Router) sendErrorResponse(response http.ResponseWriter, request *http.R
 }
 
 func (r *Router) writeError(response http.ResponseWriter, request *http.Request, err error) {
-	_, err = response.Write([]byte(err.Error()))
+	body := map[string]string{"error": err.Error()}
+
+	result, err := json.Marshal(body)
+	if err != nil {
+		r.logger.With("request_url", request.Method+": "+request.URL.Path).
+			Error(fmt.Errorf("error marshalling error body: %v", err))
+	}
+
+	_, err = response.Write(result)
 	if err != nil {
 		r.logger.With(
 			"module", "api",
@@ -274,6 +296,129 @@ func (r *Router) deleteFavourite(writer http.ResponseWriter, request *http.Reque
 		r.sendErrorResponse(writer, request, fmt.Errorf("RemoveFavourite: %w", err))
 
 		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) getUser(writer http.ResponseWriter, request *http.Request) {
+	result, err := r.userData.GetProfile(request.Context())
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("GetProfile: %w", err))
+
+		return
+	}
+
+	buf, err := json.Marshal(result)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) deleteUser(writer http.ResponseWriter, request *http.Request) {
+	err := r.userData.DeleteProfile(request.Context())
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("DeleteProfile: %w", err))
+
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) updateProfile(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.UpdateUserRequest
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+
+		return
+	}
+
+	err = r.userData.UpdateProfile(request.Context(), requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("UpdateProfile: %w", err))
+
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) logout(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) getAddresses(writer http.ResponseWriter, request *http.Request) {
+	addresses := r.userData.GetAddresses(request.Context())
+
+	buf, err := json.Marshal(addresses)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) addAddress(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.Address
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+
+		return
+	}
+
+	err = r.userData.AddAddress(request.Context(), &requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("AddAddress: %w", err))
+
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) updateAddress(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.Address
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+	}
+
+	id := request.PathValue("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+	}
+
+	requestBody.ID = id
+
+	err = r.userData.UpdateAddress(request.Context(), &requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("UpdateAddress: %w", err))
+	}
+
+	writer.WriteHeader(http.StatusOK)
+}
+
+func (r *Router) deleteAddress(writer http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+	}
+
+	err := r.userData.RemoveAddress(request.Context(), id)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("RemoveAddress: %w", err))
 	}
 
 	writer.WriteHeader(http.StatusOK)

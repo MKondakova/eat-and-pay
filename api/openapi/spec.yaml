@@ -249,6 +249,7 @@ components:
 paths:
   /users/me:
     get:
+      tags: [О пользователе]
       summary: Получить профиль текущего пользователя
       responses:
         "200":
@@ -262,6 +263,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     put:
+      tags: [О пользователе]
       summary: Обновить профиль
       requestBody:
         required: true
@@ -288,6 +290,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     delete:
+      tags: [О пользователе]
       summary: Удалить аккаунт
       responses:
         "200":
@@ -299,6 +302,7 @@ paths:
 
   /logout:
     post:
+      tags: [О пользователе]
       summary: Выйти из системы
       responses:
         "200":
@@ -310,6 +314,7 @@ paths:
 
   /products:
     get:
+      tags: [Товары]
       summary: Список товаров
       parameters:
         - in: query
@@ -355,6 +360,7 @@ paths:
 
   /products/{id}:
     get:
+      tags: [Товары]
       summary: Детальная информация о товаре
       parameters:
         - in: path
@@ -378,6 +384,7 @@ paths:
 
   /products/{id}/favourite:
     post:
+      tags: [Товары]
       summary: Добавить товар в избранное
       parameters:
         - in: path
@@ -395,6 +402,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     delete:
+      tags: [Товары]
       summary: Удалить товар из избранного
       parameters:
         - in: path
@@ -413,6 +421,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
   /products/{id}/reviews:
     post:
+      tags: [Товары]
       summary: Добавить отзыв
       description: Добавленные отзывы видны всем пользователям. Также отзыв подписывается именем студента, выполнившего запрос. То есть отзывы публичны и не анонимны, будьте внимательны.
       parameters:
@@ -452,6 +461,7 @@ paths:
 
   /categories:
     get:
+      tags: [Товары]
       summary: Получить список категорий
       responses:
         "200":
@@ -469,6 +479,7 @@ paths:
 
   /cart:
     get:
+      tags: [Корзина]
       summary: Получить содержимое корзины
       responses:
         "200":
@@ -511,6 +522,7 @@ paths:
 
   /cart/items:
     post:
+      tags: [Корзина]
       summary: Добавить товар в корзину
       parameters:
         - in: query
@@ -538,6 +550,7 @@ paths:
 
   /cart/items/{id}:
     delete:
+      tags: [Корзина]
       summary: Удалить товар из корзины
       parameters:
         - in: path
@@ -564,6 +577,7 @@ paths:
 
   /orders:
     post:
+      tags: [Заказы]
       summary: Создать новый заказ
       requestBody:
         required: true
@@ -588,6 +602,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     get:
+      tags: [Заказы]
       summary: Список заказов пользователя
       responses:
         "200":
@@ -604,6 +619,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
   /addresses:
     get:
+      tags: [О пользователе]
       summary: Список адресов пользователя
       responses:
         "200":
@@ -627,6 +643,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     post:
+      tags: [О пользователе]
       summary: Добавить новый адрес
       requestBody:
         required: true
@@ -646,6 +663,7 @@ paths:
 
   /addresses/{id}:
     put:
+      tags: [О пользователе]
       summary: Обновить адрес
       parameters:
         - in: path
@@ -671,6 +689,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
     delete:
+      tags: [О пользователе]
       summary: Удалить адрес
       parameters:
         - in: path
@@ -690,6 +709,7 @@ paths:
 
   /uploads:
     post:
+      tags: [Файлы]
       summary: Загрузить файл
       description: |
         Загружает файл в хранилище. 
@@ -731,6 +751,7 @@ paths:
 
   /uploads/{filename}:
     get:
+      tags: [Файлы]
       summary: Скачать или просмотреть файл
       description: |
         Возвращает загруженный ранее файл.

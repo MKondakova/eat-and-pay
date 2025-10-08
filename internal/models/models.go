@@ -13,14 +13,15 @@ type Product struct {
 	ID          string  `json:"id"`
 	Image       string  `json:"image"`
 	Name        string  `json:"name"`
-	Weight      float64 `json:"weight"`
-	Price       float64 `json:"price"`
+	Weight      int     `json:"weight"`
+	Price       int     `json:"price"`
 	Rating      float32 `json:"rating"`
 	Description string  `json:"description"`
 	// Размер скидки.
-	Discount   float64  `json:"discount,omitempty"`
+	Discount   int      `json:"discount,omitempty"`
 	Reviews    []Review `json:"reviews"`
 	IsFavorite bool     `json:"isFavorite"`
+	Available  bool     `json:"-"`
 }
 
 type Review struct {
@@ -55,13 +56,13 @@ type ProductPreview struct {
 	ID          string  `json:"id"`
 	Image       string  `json:"image"`
 	Name        string  `json:"name"`
-	Weight      float64 `json:"weight"`
-	Price       float64 `json:"price"`
+	Weight      int     `json:"weight"`
+	Price       int     `json:"price"`
 	Rating      float32 `json:"rating"`
 	ReviewCount int     `json:"reviewCount"`
 	IsFavorite  bool    `json:"isFavorite"`
 	// Размер скидки.
-	Discount float64 `json:"discount,omitempty"`
+	Discount int `json:"discount,omitempty"`
 }
 
 func (p *Product) ToPreview() ProductPreview {
@@ -138,49 +139,57 @@ type Order struct {
 	ID           string      `json:"id"`
 	Status       OrderStatus `json:"status"`
 	DeliveryDate string      `json:"deliveryDate"`
-	Address      string      `json:"address"`
+	Address      Address     `json:"address"`
 	// Стоимость товаров в заказе.
-	OrderPrice float64 `json:"orderPrice"`
+	OrderPrice int `json:"orderPrice"`
 	// Стоимость доставки.
-	DeliveryPrice float64 `json:"deliveryPrice"`
+	DeliveryPrice int `json:"deliveryPrice"`
 	// Общая стоимость.
-	TotalPrice float64     `json:"totalPrice"`
+	TotalPrice int         `json:"totalPrice"`
 	TotalItems int         `json:"totalItems"`
 	Items      []OrderItem `json:"items"`
+	CreatedAt  time.Time   `json:"-"`
 }
 
 type OrderItem struct {
-	ID       string  `json:"id"`
-	Image    string  `json:"image"`
-	Name     string  `json:"name"`
-	Weight   float64 `json:"weight"`
-	Price    float64 `json:"price"`
-	Quantity int     `json:"quantity"`
+	ID       string `json:"id"`
+	Image    string `json:"image"`
+	Name     string `json:"name"`
+	Weight   int    `json:"weight"`
+	Price    int    `json:"price"`
+	Quantity int    `json:"quantity"`
 }
 
 type CartResponse struct {
 	// Сколько минут займет доставка.
 	DeliveryTime int `json:"deliveryTime"`
 	// Стоимость товаров в заказе.
-	OrderPrice float64 `json:"orderPrice"`
+	OrderPrice int `json:"orderPrice"`
 	// Стоимость доставки.
-	DeliveryPrice float64 `json:"deliveryPrice"`
+	DeliveryPrice int `json:"deliveryPrice"`
 	// Общая стоимость.
-	TotalPrice float64             `json:"totalPrice"`
-	Items      []CartResponseItems `json:"items"`
+	TotalPrice int                `json:"totalPrice"`
+	TotalItems int                `json:"totalItems"`
+	Items      []CartResponseItem `json:"items"`
 }
 
-type CartResponseItems struct {
-	ProductID string  `json:"id"`
-	Image     string  `json:"image"`
-	Name      string  `json:"name"`
-	Weight    float64 `json:"weight"`
-	Price     float64 `json:"price"`
-	Quantity  int     `json:"quantity"`
-	Available bool    `json:"available"`
+type CartResponseItem struct {
+	ProductID string `json:"id"`
+	Image     string `json:"image"`
+	Name      string `json:"name"`
+	Weight    int    `json:"weight"`
+	Price     int    `json:"price"`
+	Quantity  int    `json:"quantity"`
+	Available bool   `json:"available"`
 }
 
-type CartItems struct {
+type CartItem struct {
 	ProductID string `json:"id"`
 	Quantity  int    `json:"quantity"`
+}
+
+type OrderRequest struct {
+	PaymentMethod string `json:"paymentMethod"`
+	// Id выбранного адерса.
+	AddressID string `json:"addressid"`
 }

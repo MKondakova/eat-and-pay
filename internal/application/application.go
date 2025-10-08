@@ -19,11 +19,15 @@ import (
 type Application struct {
 	cfg *config.Config
 
-	productService *service.ProductsService
-	tokenService   *service.TokenService
-	userData       *service.UserData
-	fileSaver      *storage.Storage
-	logger         *zap.SugaredLogger
+	addressService    *service.AddressService
+	cartService       *service.Cart
+	favouritesService *service.Favourites
+	orderService      *service.OrderService
+	productService    *service.ProductsService
+	tokenService      *service.TokenService
+	userData          *service.UserData
+	fileSaver         *storage.Storage
+	logger            *zap.SugaredLogger
 
 	errChan chan error
 	wg      sync.WaitGroup
@@ -141,10 +145,12 @@ func (a *Application) initLogger() error {
 }
 
 func (a *Application) initServices() error {
+	a.addressService = service.NewAddressService()
+	a.favouritesService = service.NewFavouritesService()
 	a.userData = service.NewUserData()
 	a.fileSaver = storage.NewStorage(a.logger, "data/uploads")
 	a.productService = service.NewProductsService(
-		a.userData,
+		a.favouritesService,
 		[]*models.Product{
 			{
 				ID:          "ff25265d-9dfc-49c3-bd01-678c6baa001f",
@@ -156,6 +162,7 @@ func (a *Application) initServices() error {
 				Description: "Норм",
 				Discount:    0,
 				Reviews:     []models.Review{{Rating: 5, Author: "sdsadas", CreatedAt: time.Now(), Content: "ssdsdfsdfa"}},
+				Available:   true,
 			},
 		}, map[string][]string{
 			"favourite": {"ff25265d-9dfc-49c3-bd01-678c6baa001f"},
@@ -168,6 +175,8 @@ func (a *Application) initServices() error {
 		},
 	)
 
+	a.cartService = service.NewCart(a.productService, a.logger)
+	a.orderService = service.NewOrderService(a.addressService, a.cartService)
 	a.tokenService = service.NewTokenService(a.cfg.PrivateKey, a.cfg.CreatedTokensPath)
 
 	return nil
@@ -180,6 +189,9 @@ func (a *Application) initRouter(ctx context.Context) error {
 		a.cfg.ServerOpts,
 		a.productService,
 		a.userData,
+		a.addressService,
+		a.cartService,
+		a.orderService,
 		a.tokenService,
 		a.fileSaver,
 		authMiddleware,

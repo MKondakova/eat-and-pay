@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"encoding/json"
+	"eats-backend/internal/models"
 	"errors"
 	"fmt"
 	"io"
@@ -26,20 +26,16 @@ func NewStorage(logger *zap.SugaredLogger, dir string) *Storage {
 	}
 }
 
-func (s *Storage) SaveFile(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) SaveFile(w http.ResponseWriter, r *http.Request) (string, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB max
 
 	reader, err := r.MultipartReader()
 	if err != nil {
-		s.logger.Errorf("invalid multipart request: %v", err)
-		http.Error(w, "invalid multipart request", http.StatusBadRequest)
-		return
+		return "", fmt.Errorf("%w: invalid multipart request: %w", models.ErrBadRequest, err)
 	}
 
 	if err := os.MkdirAll(s.dir, os.ModePerm); err != nil {
-		s.logger.Errorf("can't create upload dir: %v", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("%w: can't create upload dir: %w", models.ErrInternalServer, err)
 	}
 
 	tempName := uuid.NewString()
@@ -51,9 +47,7 @@ func (s *Storage) SaveFile(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if err != nil {
-			s.logger.Errorf("upload failed: %v", err)
-			http.Error(w, "upload failed", http.StatusInternalServerError)
-			return
+			return "", fmt.Errorf("%w: upload failed: %w", models.ErrInternalServer, err)
 		}
 		if name != "" {
 			savedFile = name
@@ -61,16 +55,12 @@ func (s *Storage) SaveFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if savedFile == "" {
-		http.Error(w, "no file part found", http.StatusBadRequest)
-		return
+		return "", fmt.Errorf("%w: no file part found: %w", models.ErrBadRequest, err)
 	}
 
 	s.logger.Infof("uploaded file %s to %s successfully", savedFile, s.dir)
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"file": savedFile})
-	if err != nil {
-		s.logger.Errorf("can't encode response: %v", err)
-	}
+
+	return savedFile, nil
 }
 
 func (s *Storage) loadPart(reader *multipart.Reader, tempName string) (string, error) {

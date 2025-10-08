@@ -46,7 +46,7 @@ components:
         weight:
           type: number
         price:
-          type: number
+          type: integer
         rating:
           type: number
           format: float
@@ -76,7 +76,7 @@ components:
         weight:
           type: number
         price:
-          type: number
+          type: integer
         rating:
           type: number
           format: float
@@ -90,7 +90,7 @@ components:
 
     Review:
       type: object
-      required: [ rating, author, createdAt, content ]
+      required: [ rating, author, createdAt, content, images ]
       properties:
         rating:
           type: integer
@@ -103,6 +103,11 @@ components:
           format: date-time
         content:
           type: string
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
 
     Category:
       type: object
@@ -127,15 +132,15 @@ components:
         name:
           type: string
         weight:
-          type: number
+          type: integer
         price:
-          type: number
+          type: integer
         quantity:
           type: integer
 
     Order:
       type: object
-      required: [id, status, deliveryDate, address, orderPrice, deliveryPrice, totalPrice, totalItems, items]
+      required: [id, status, address, orderPrice, deliveryPrice, totalPrice, totalItems, items]
       properties:
         id:
           type: string
@@ -143,17 +148,18 @@ components:
           type: string
           enum: [ active, completed ]
         deliveryDate:
+          description: Есть только если заказ завершен
           type: string
         address:
-          type: string
+          $ref: "#/components/schemas/Address"
         orderPrice:
-          type: number
+          type: integer
           description: Стоимость товаров в заказе
         deliveryPrice:
-          type: number
+          type: integer
           description: Стоимость доставки
         totalPrice:
-          type: number
+          type: integer
           description: Общая стоимость
         totalItems:
           type: integer
@@ -370,7 +376,7 @@ paths:
         default:
           $ref: "#/components/responses/InternalServerError"
 
-  /products/{id}/favorite:
+  /products/{id}/favourite:
     post:
       summary: Добавить товар в избранное
       parameters:
@@ -408,6 +414,7 @@ paths:
   /products/{id}/reviews:
     post:
       summary: Добавить отзыв
+      description: Добавленные отзывы видны всем пользователям. Также отзыв подписывается именем студента, выполнившего запрос. То есть отзывы публичны и не анонимны, будьте внимательны.
       parameters:
         - in: path
           name: id
@@ -419,7 +426,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Review"
+              type: object
+              required: [ rating, content, images ]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                content:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
       responses:
         "200":
           description: Отзыв добавлен
@@ -456,21 +476,24 @@ paths:
           content:
             application/json:
               schema:
-                required: [deliveryTime, orderPrice, deliveryPrice, totalPrice, items]
+                required: [deliveryTime, orderPrice, deliveryPrice, totalPrice, items, totalItems]
                 type: object
                 properties:
                   deliveryTime:
                     type: integer
                     description: Сколько минут займет доставка
                   orderPrice:
-                    type: number
+                    type: integer
                     description: Стоимость товаров в заказе
                   deliveryPrice:
-                    type: number
+                    type: integer
                     description: Стоимость доставки
                   totalPrice:
-                    type: number
+                    type: integer
                     description: Общая стоимость
+                  totalItems:
+                    type: integer
+                    description: Количество товаров в корзине
                   items:
                     type: array
                     items:
@@ -548,9 +571,13 @@ paths:
           application/json:
             schema:
               type: object
+              required: [paymentMethod, addressID]
               properties:
                 paymentMethod:
                   type: string
+                addressID:
+                  type: string
+                  description: id выбранного адерса
       responses:
         "200":
           description: Заказ создан
@@ -654,6 +681,74 @@ paths:
       responses:
         "200":
           description: Адрес удален
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /uploads:
+    post:
+      summary: Загрузить файл
+      description: |
+        Загружает файл в хранилище. 
+        Требуется авторизация через Bearer токен. 
+        Максимальный размер файла — 5 МБ.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл для загрузки
+      responses:
+        "200":
+          description: Файл успешно загружен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file:
+                    type: string
+                    example: "f8a3b0e1-12c3-4a5b-9d8e-1c2a3b4d5e6f.png"
+        "401":
+          $ref: "#/components/responses/401"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "404":
+          $ref: "#/components/responses/404"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /uploads/{filename}:
+    get:
+      summary: Скачать или просмотреть файл
+      description: |
+        Возвращает загруженный ранее файл.
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+          description: Имя файла (с расширением)
+      responses:
+        "200":
+          description: Файл найден и возвращён
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: "#/components/responses/401"
         "404":

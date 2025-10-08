@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"net/url"
 	"slices"
+	"sync"
+	"time"
 
 	api "eats-backend/api/generated"
 )
 
-type UserService interface {
+type FavouritesService interface {
 	IsFavourite(ctx context.Context, productID string) bool
 	AddFavourite(ctx context.Context, id string)
 	RemoveFavourite(ctx context.Context, id string)
@@ -26,17 +29,19 @@ const defaultPageSize = 20
 type ProductsService struct {
 	api.UnimplementedHandler
 
-	userService UserService
+	favourites FavouritesService
 
 	products            []*models.Product
 	productsPerCategory map[string][]*models.Product
 	productIndex        map[string]*models.Product
 
 	categories map[string]models.Category
+
+	mux sync.RWMutex
 }
 
 func NewProductsService(
-	userService UserService,
+	favourites FavouritesService,
 	products []*models.Product,
 	productIDsPerCategory map[string][]string,
 	categories map[string]models.Category,
@@ -56,7 +61,7 @@ func NewProductsService(
 	}
 
 	return &ProductsService{
-		userService:         userService,
+		favourites:          favourites,
 		products:            products,
 		productIndex:        index,
 		categories:          categories,
@@ -73,6 +78,9 @@ func (s *ProductsService) GetCategories() []models.Category {
 }
 
 func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize int, category string) (models.ProductsList, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
 	products := s.products
 
 	if category != "" {
@@ -108,7 +116,7 @@ func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize in
 	for i := paginationStart; i < paginationEnd; i++ {
 		product := products[i]
 		preview := product.ToPreview()
-		preview.IsFavorite = s.userService.IsFavourite(ctx, product.ID)
+		preview.IsFavorite = s.favourites.IsFavourite(ctx, product.ID)
 
 		result = append(result, preview)
 	}
@@ -121,13 +129,16 @@ func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize in
 }
 
 func (s *ProductsService) GetProductByID(ctx context.Context, id string) (models.Product, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
 	productLink, ok := s.productIndex[id]
 	if !ok {
 		return models.Product{}, fmt.Errorf("%w: no such product", models.ErrNotFound)
 	}
 
 	product := *productLink
-	product.IsFavorite = s.userService.IsFavourite(ctx, product.ID)
+	product.IsFavorite = s.favourites.IsFavourite(ctx, product.ID)
 
 	return product, nil
 }
@@ -138,7 +149,7 @@ func (s *ProductsService) AddFavourite(ctx context.Context, id string) error {
 		return fmt.Errorf("%w: no such product", models.ErrNotFound)
 	}
 
-	s.userService.AddFavourite(ctx, id)
+	s.favourites.AddFavourite(ctx, id)
 
 	return nil
 }
@@ -149,7 +160,51 @@ func (s *ProductsService) RemoveFavourite(ctx context.Context, id string) error 
 		return fmt.Errorf("%w: no such product", models.ErrNotFound)
 	}
 
-	s.userService.RemoveFavourite(ctx, id)
+	s.favourites.RemoveFavourite(ctx, id)
+
+	return nil
+}
+
+func (s *ProductsService) ProductExists(id string) bool {
+	_, ok := s.productIndex[id]
+
+	return ok
+}
+
+func (s *ProductsService) AddReview(ctx context.Context, review models.PostReviewRequest, productID string) error {
+	name := models.ClaimsFromContext(ctx).Nickname
+
+	if review.Rating > 5 || review.Rating < 1 {
+		return fmt.Errorf("%w: rating must be between 1 and 5", models.ErrBadRequest)
+	}
+
+	for _, image := range review.Images {
+		if _, err := url.Parse(image); err != nil {
+			return fmt.Errorf("%w: invalid image: %s must be url", models.ErrBadRequest, image)
+		}
+	}
+
+	if _, ok := s.productIndex[productID]; !ok {
+		return fmt.Errorf("%w: no such product", models.ErrNotFound)
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	newReview := models.Review{
+		Rating:    review.Rating,
+		Author:    name,
+		CreatedAt: time.Now(),
+		Content:   review.Content,
+		Images:    review.Images,
+	}
+
+	product := s.productIndex[productID]
+	if product.Reviews == nil {
+		product.Reviews = make([]models.Review, 0)
+	}
+
+	product.Reviews = append(product.Reviews, newReview)
 
 	return nil
 }

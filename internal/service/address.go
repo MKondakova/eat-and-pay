@@ -13,7 +13,7 @@ import (
 type AddressService struct {
 	addresses map[string][]*models.Address
 
-	mux sync.Mutex
+	mux sync.RWMutex
 }
 
 func NewAddressService() *AddressService {
@@ -25,8 +25,8 @@ func NewAddressService() *AddressService {
 func (s *AddressService) GetAddresses(ctx context.Context) []*models.Address {
 	userID := models.ClaimsFromContext(ctx).ID
 
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	if addresses, ok := s.addresses[userID]; ok {
 		return addresses
@@ -100,6 +100,23 @@ func (s *AddressService) UpdateAddress(ctx context.Context, newAddress *models.A
 	}
 
 	return fmt.Errorf("%w: address not found", models.ErrNotFound)
+}
+
+func (s *AddressService) GetAddressByID(ctx context.Context, addressID string) (models.Address, error) {
+	userID := models.ClaimsFromContext(ctx).ID
+
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	if addresses, ok := s.addresses[userID]; ok {
+		for _, address := range addresses {
+			if address.ID == addressID {
+				return *address, nil
+			}
+		}
+	}
+
+	return models.Address{}, fmt.Errorf("%w: address not found", models.ErrNotFound)
 }
 
 func validateCoordinates(coordinates []float64) error {

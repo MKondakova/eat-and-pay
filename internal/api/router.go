@@ -23,13 +23,16 @@ var (
 )
 
 type FileSaver interface {
-	SaveFile(w http.ResponseWriter, r *http.Request)
+	SaveFile(w http.ResponseWriter, r *http.Request) (string, error)
 }
 
 type UserData interface {
 	GetProfile(ctx context.Context) (*models.UserProfile, error)
 	UpdateProfile(ctx context.Context, data models.UpdateUserRequest) error
 	DeleteProfile(ctx context.Context) error
+}
+
+type AddressService interface {
 	GetAddresses(ctx context.Context) []*models.Address
 	AddAddress(ctx context.Context, address *models.Address) error
 	RemoveAddress(ctx context.Context, addressID string) error
@@ -40,8 +43,20 @@ type ProductsService interface {
 	GetProductsList(ctx context.Context, page, pageSize int, category string) (models.ProductsList, error)
 	GetProductByID(ctx context.Context, id string) (models.Product, error)
 	GetCategories() []models.Category
+	AddReview(ctx context.Context, review models.PostReviewRequest, productID string) error
 	AddFavourite(ctx context.Context, id string) error
 	RemoveFavourite(ctx context.Context, id string) error
+}
+
+type CartService interface {
+	GetCart(ctx context.Context) (models.CartResponse, error)
+	AddItem(ctx context.Context, productID string) (int, error)
+	RemoveItem(ctx context.Context, productID string) (int, error)
+}
+
+type OrderService interface {
+	GetOrders(ctx context.Context) ([]*models.Order, error)
+	MakeNewOrder(ctx context.Context, orderRequest *models.OrderRequest) error
 }
 
 type TokenService interface {
@@ -54,6 +69,9 @@ type Router struct {
 
 	productsService ProductsService
 	userData        UserData
+	addressService  AddressService
+	cartService     CartService
+	orderService    OrderService
 	tokenService    TokenService
 	fileSaver       FileSaver
 
@@ -64,6 +82,9 @@ func NewRouter(
 	cfg config.ServerOpts,
 	productsService ProductsService,
 	userData UserData,
+	addressService AddressService,
+	cartService CartService,
+	orderService OrderService,
 	tokenService TokenService,
 	fileSaver FileSaver,
 	authMiddleware func(next http.HandlerFunc) http.HandlerFunc,
@@ -80,8 +101,11 @@ func NewRouter(
 		},
 		router:          innerRouter,
 		productsService: productsService,
-		tokenService:    tokenService,
 		userData:        userData,
+		addressService:  addressService,
+		cartService:     cartService,
+		orderService:    orderService,
+		tokenService:    tokenService,
 		logger:          logger,
 		fileSaver:       fileSaver,
 	}
@@ -98,16 +122,16 @@ func NewRouter(
 	innerRouter.HandleFunc("POST /products/{id}/favourite", authMiddleware(appRouter.addFavourite))
 	innerRouter.HandleFunc("DELETE /products/{id}/favourite", authMiddleware(appRouter.deleteFavourite))
 
-	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(nil)) //todo: today
+	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(appRouter.addReview))
 
 	innerRouter.HandleFunc("GET /categories", authMiddleware(appRouter.getCategories))
 
-	innerRouter.HandleFunc("GET /cart", authMiddleware(nil))
-	innerRouter.HandleFunc("POST /cart/items", authMiddleware(nil))
-	innerRouter.HandleFunc("DELETE /cart/items/{id}", authMiddleware(nil))
+	innerRouter.HandleFunc("GET /cart", authMiddleware(appRouter.getCart))
+	innerRouter.HandleFunc("POST /cart/items", authMiddleware(appRouter.addToCart))
+	innerRouter.HandleFunc("DELETE /cart/items/{id}", authMiddleware(appRouter.removeFromCart))
 
-	innerRouter.HandleFunc("GET /orders", authMiddleware(nil))
-	innerRouter.HandleFunc("POST /orders", authMiddleware(nil))
+	innerRouter.HandleFunc("GET /orders", authMiddleware(appRouter.getOrders))
+	innerRouter.HandleFunc("POST /orders", authMiddleware(appRouter.makeOrder))
 
 	innerRouter.HandleFunc("GET /addresses", authMiddleware(appRouter.getAddresses))
 	innerRouter.HandleFunc("POST /addresses", authMiddleware(appRouter.addAddress))
@@ -119,7 +143,7 @@ func NewRouter(
 
 	uploadsDir := http.Dir("data/uploads")
 	innerRouter.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(uploadsDir)))
-	innerRouter.HandleFunc("POST /uploads", authMiddleware(appRouter.fileSaver.SaveFile))
+	innerRouter.HandleFunc("POST /uploads", authMiddleware(appRouter.saveFile))
 
 	innerRouter.HandleFunc("GET /", func(writer http.ResponseWriter, request *http.Request) {
 		http.ServeFile(writer, request, "redoc-static.html")
@@ -210,6 +234,26 @@ func (r *Router) writeError(response http.ResponseWriter, request *http.Request,
 	}
 }
 
+func (r *Router) saveFile(writer http.ResponseWriter, request *http.Request) {
+	filename, err := r.fileSaver.SaveFile(writer, request)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("SaveFile: %w", err))
+
+		return
+	}
+
+	responseBody := map[string]string{"file": filename}
+
+	buf, err := json.Marshal(responseBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
 func (r *Router) getProductsList(writer http.ResponseWriter, request *http.Request) {
 	page, err := getPaginationParameter(request, "page", 1)
 	if err != nil {
@@ -221,6 +265,8 @@ func (r *Router) getProductsList(writer http.ResponseWriter, request *http.Reque
 	pageSize, err := getPaginationParameter(request, "pageSize", models.DefaultPageSize)
 	if err != nil {
 		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+
+		return
 	}
 
 	category := request.URL.Query().Get("category")
@@ -228,6 +274,8 @@ func (r *Router) getProductsList(writer http.ResponseWriter, request *http.Reque
 	result, err := r.productsService.GetProductsList(request.Context(), page, pageSize, category)
 	if err != nil {
 		r.sendErrorResponse(writer, request, err)
+
+		return
 	}
 
 	buf, err := json.Marshal(result)
@@ -263,6 +311,32 @@ func (r *Router) getProductByID(writer http.ResponseWriter, request *http.Reques
 	}
 
 	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) addReview(writer http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+
+		return
+	}
+	var requestBody models.PostReviewRequest
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+
+		return
+	}
+
+	err = r.productsService.AddReview(request.Context(), requestBody, id)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("AddReview: %w", err))
+
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
 }
 
 func (r *Router) addFavourite(writer http.ResponseWriter, request *http.Request) {
@@ -355,7 +429,7 @@ func (r *Router) logout(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func (r *Router) getAddresses(writer http.ResponseWriter, request *http.Request) {
-	addresses := r.userData.GetAddresses(request.Context())
+	addresses := r.addressService.GetAddresses(request.Context())
 
 	buf, err := json.Marshal(addresses)
 	if err != nil {
@@ -377,7 +451,7 @@ func (r *Router) addAddress(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	err = r.userData.AddAddress(request.Context(), &requestBody)
+	err = r.addressService.AddAddress(request.Context(), &requestBody)
 	if err != nil {
 		r.sendErrorResponse(writer, request, fmt.Errorf("AddAddress: %w", err))
 
@@ -388,23 +462,29 @@ func (r *Router) addAddress(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (r *Router) updateAddress(writer http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+
+		return
+	}
+
 	var requestBody models.Address
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
 		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
-	}
 
-	id := request.PathValue("id")
-	if id == "" {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+		return
 	}
 
 	requestBody.ID = id
 
-	err = r.userData.UpdateAddress(request.Context(), &requestBody)
+	err = r.addressService.UpdateAddress(request.Context(), &requestBody)
 	if err != nil {
 		r.sendErrorResponse(writer, request, fmt.Errorf("UpdateAddress: %w", err))
+
+		return
 	}
 
 	writer.WriteHeader(http.StatusOK)
@@ -414,11 +494,15 @@ func (r *Router) deleteAddress(writer http.ResponseWriter, request *http.Request
 	id := request.PathValue("id")
 	if id == "" {
 		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+
+		return
 	}
 
-	err := r.userData.RemoveAddress(request.Context(), id)
+	err := r.addressService.RemoveAddress(request.Context(), id)
 	if err != nil {
 		r.sendErrorResponse(writer, request, fmt.Errorf("RemoveAddress: %w", err))
+
+		return
 	}
 
 	writer.WriteHeader(http.StatusOK)
@@ -435,6 +519,120 @@ func (r *Router) getCategories(writer http.ResponseWriter, request *http.Request
 	}
 
 	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) getCart(writer http.ResponseWriter, request *http.Request) {
+	cart, err := r.cartService.GetCart(request.Context())
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("GetCart: %w", err))
+
+		return
+	}
+
+	buf, err := json.Marshal(cart)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) addToCart(writer http.ResponseWriter, request *http.Request) {
+	id := request.URL.Query().Get("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+
+		return
+	}
+
+	amount, err := r.cartService.AddItem(request.Context(), id)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("AddToCart: %w", err))
+
+		return
+	}
+
+	response := map[string]any{
+		"total": amount,
+	}
+
+	buf, err := json.Marshal(response)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) removeFromCart(writer http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if id == "" {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, errEmptyID))
+
+		return
+	}
+
+	amount, err := r.cartService.RemoveItem(request.Context(), id)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("RemoveItem: %w", err))
+
+		return
+	}
+
+	response := map[string]any{
+		"total": amount,
+	}
+
+	buf, err := json.Marshal(response)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) getOrders(writer http.ResponseWriter, request *http.Request) {
+	orders, err := r.orderService.GetOrders(request.Context())
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("GetOrders: %w", err))
+
+		return
+	}
+
+	buf, err := json.Marshal(orders)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) makeOrder(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.OrderRequest
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+
+		return
+	}
+
+	err = r.orderService.MakeNewOrder(request.Context(), &requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("MakeNewOrder: %w", err))
+
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
 }
 
 func (r *Router) createToken(writer http.ResponseWriter, request *http.Request) {

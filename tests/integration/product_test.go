@@ -20,42 +20,38 @@ func TestProductEndpoints(t *testing.T) {
 	suite.Run(t, &ProductSuite{})
 }
 
-func (s *ProductSuite) TestDeleteProduct() {
-	id := "c5268b2c-0501-4784-b4de-72760d819baf"
+func (s *ProductSuite) TestGetProductByID() {
+	// Assume this product exists in the test DB
+	id := "ff25265d-9dfc-49c3-bd01-678c6baa001f"
 
-	res, code := s.DeleteAPI("http://localhost:8080", "/products/"+id, nil, nil)
-	s.Equal(http.StatusNoContent, code)
+	res, code := s.GetAPI("http://localhost:8080", "/products/"+id, nil, nil)
+	s.Equal(http.StatusOK, code)
 
-	s.Empty(res)
-
-	res, code = s.DeleteAPI("http://localhost:8080", "/products/"+id, nil, nil)
-	s.Equal(http.StatusNotFound, code)
-
-	s.Equal("GetProductByID: not found: product c5268b2c-0501-4784-b4de-72760d819baf not found", string(res))
+	var product models.Product
+	err := json.Unmarshal(res, &product)
+	s.NoError(err)
+	s.Equal(id, product.ID)
+	s.NotEmpty(product.Name)
+	s.NotEmpty(product.Image)
+	s.NotZero(product.Price)
 }
 
-func (s *ProductSuite) TestAddProduct() {
-
-	res, code := s.PostAPI("http://localhost:8080", "/products/generate", nil, nil, nil)
+func (s *ProductSuite) TestGetProductsList() {
+	res, code := s.GetAPI("http://localhost:8080", "/products", nil, nil)
 	s.Equal(http.StatusOK, code)
 
-	fmt.Println(string(res))
-
-	var newProduct models.ProductPreview
-	err := json.Unmarshal(res, &newProduct)
+	var products []models.ProductPreview
+	err := json.Unmarshal(res, &products)
 	s.NoError(err)
+	s.NotEmpty(products)
+}
 
-	s.NotEmpty(newProduct.ID)
-
-	newID := newProduct.ID
-
-	res, code = s.GetAPI("http://localhost:8080", "/products/"+newID, nil, nil)
+func (s *ProductSuite) TestGetCategories() {
+	res, code := s.GetAPI("http://localhost:8080", "/categories", nil, nil)
 	s.Equal(http.StatusOK, code)
 
-	fmt.Println(string(res))
-
-	s.NotEmpty(res)
-	var newProductFullInfo models.ProductPageInfo
-	err = json.Unmarshal(res, &newProductFullInfo)
+	var categories []models.Category
+	err := json.Unmarshal(res, &categories)
 	s.NoError(err)
+	s.NotEmpty(categories)
 }

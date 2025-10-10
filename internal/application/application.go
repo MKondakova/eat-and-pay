@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
 	"eats-backend/internal/api"
 	"eats-backend/internal/config"
-	"eats-backend/internal/models"
 	"eats-backend/internal/service"
 	"eats-backend/internal/storage"
 	"eats-backend/pkg/runner"
@@ -26,6 +24,7 @@ type Application struct {
 	productService    *service.ProductsService
 	tokenService      *service.TokenService
 	userData          *service.UserData
+	walletService     *service.WalletService
 	fileSaver         *storage.Storage
 	logger            *zap.SugaredLogger
 
@@ -151,33 +150,15 @@ func (a *Application) initServices() error {
 	a.fileSaver = storage.NewStorage(a.logger, "data/uploads")
 	a.productService = service.NewProductsService(
 		a.favouritesService,
-		[]*models.Product{
-			{
-				ID:          "ff25265d-9dfc-49c3-bd01-678c6baa001f",
-				Image:       "https://basket-01.wbbasket.ru/vol100/part10039/10039442/images/big/1.webp",
-				Name:        "Мука",
-				Weight:      123,
-				Price:       1000,
-				Rating:      5.6,
-				Description: "Норм",
-				Discount:    0,
-				Reviews:     []models.Review{{Rating: 5, Author: "sdsadas", CreatedAt: time.Now(), Content: "ssdsdfsdfa"}},
-				Available:   true,
-			},
-		}, map[string][]string{
-			"favourite": {"ff25265d-9dfc-49c3-bd01-678c6baa001f"},
-		}, map[string]models.Category{
-			"favourite": {
-				ID:    "favourite",
-				Name:  "Любимое",
-				Image: "https://basket-01.wbbasket.ru/vol100/part10039/10039442/images/big/1.webp",
-			},
-		},
+		a.cfg.InitialProductsData,
+		a.cfg.InitialProductCategories,
+		a.cfg.InitialCategories,
 	)
 
 	a.cartService = service.NewCart(a.productService, a.logger)
 	a.orderService = service.NewOrderService(a.addressService, a.cartService)
 	a.tokenService = service.NewTokenService(a.cfg.PrivateKey, a.cfg.CreatedTokensPath)
+	a.walletService = service.NewWalletService()
 
 	return nil
 }
@@ -193,6 +174,7 @@ func (a *Application) initRouter(ctx context.Context) error {
 		a.cartService,
 		a.orderService,
 		a.tokenService,
+		a.walletService,
 		a.fileSaver,
 		authMiddleware,
 		a.logger,

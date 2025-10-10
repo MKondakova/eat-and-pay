@@ -193,3 +193,55 @@ type OrderRequest struct {
 	// Id выбранного адерса.
 	AddressID string `json:"addressid"`
 }
+
+// Wallet models
+type AccountType string
+
+const (
+	AccountTypeCard    AccountType = "card"
+	AccountTypeSavings AccountType = "savings"
+)
+
+type Account struct {
+	ID      string      `json:"id"`
+	Type    AccountType `json:"type"`
+	Balance int         `json:"balance"` // Баланс в рублях
+}
+
+type Wallet struct {
+	Accounts []Account `json:"accounts"`
+}
+
+type Transaction struct {
+	Amount int       `json:"amount"` // Сумма в рублях (отрицательная для трат, положительная для доходов)
+	Title  string    `json:"title"`
+	Time   time.Time `json:"time"`
+	Icon   string    `json:"icon"`
+}
+
+type TransactionsByDate map[string][]Transaction
+
+type TransactionsResponse struct {
+	CurrentPage int                `json:"currentPage"`
+	TotalPages  int                `json:"totalPages"`
+	Data        TransactionsByDate `json:"data"`
+}
+
+type TopupRequest struct {
+	AccountID string `json:"accountId"`
+	Amount    int    `json:"amount"` // Сумма пополнения в рублях (максимум 1000 рублей в сутки)
+}
+
+type TopupResponse struct {
+	Balance int `json:"balance"` // Новый баланс в рублях
+}
+
+type TransferRequest struct {
+	FromAccountID string `json:"fromAccountId"`
+	ToPhoneNumber string `json:"toPhoneNumber"`
+	Amount        int    `json:"amount"` // Сумма перевода в рублях
+}
+
+type TransferResponse struct {
+	Balance int `json:"balance"` // Новый баланс отправителя в рублях
+}

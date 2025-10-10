@@ -83,13 +83,22 @@ func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize in
 
 	products := s.products
 
-	if category != "" {
+	if category != "" && category != "favourite" {
 		if _, categoryExists := s.categories[category]; !categoryExists {
 			return models.ProductsList{}, errors.New("category not found")
 		}
 
 		products = s.productsPerCategory[category]
 
+	}
+
+	if category == "favourite" {
+		products = make([]*models.Product, 0)
+		for _, product := range s.products {
+			if s.favourites.IsFavourite(ctx, product.ID) {
+				products = append(products, product)
+			}
+		}
 	}
 
 	productsAmount := len(products)

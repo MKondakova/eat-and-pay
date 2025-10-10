@@ -190,6 +190,84 @@ components:
         comment:
           type: string
 
+    Account:
+      type: object
+      required: [id, type, balance]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [card, savings]
+          description: Тип счета
+        balance:
+          type: integer
+          description: Баланс в рублях
+
+    Wallet:
+      type: object
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+
+    Transaction:
+      type: object
+      required: [amount, title, time, icon]
+      properties:
+        amount:
+          type: integer
+          description: Сумма в рублях (отрицательная для трат, положительная для доходов)
+        title:
+          type: string
+          description: Название транзакции
+        time:
+          type: string
+          format: date-time
+          description: Время транзакции
+        icon:
+          type: string
+          format: uri
+          description: URL иконки транзакции
+
+    TransactionsByDate:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          $ref: "#/components/schemas/Transaction"
+      description: Объект, где ключ - дата в формате YYYY-MM-DD, значение - массив транзакций
+
+    TopupRequest:
+      type: object
+      required: [accountId, amount]
+      properties:
+        accountId:
+          type: string
+          description: ID счета для пополнения
+        amount:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: Сумма пополнения в рублях (максимум 1000 рублей в сутки)
+
+    TransferRequest:
+      type: object
+      required: [fromAccountId, toPhoneNumber, amount]
+      properties:
+        fromAccountId:
+          type: string
+          description: ID счета отправителя
+        toPhoneNumber:
+          type: string
+          description: Номер телефона пользователя получателя
+        amount:
+          type: integer
+          minimum: 1
+          description: Сумма перевода в рублях
+
     ErrorResponse:
       type: object
       required: [error]
@@ -770,6 +848,127 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallet:
+    get:
+      tags: [Кошелек]
+      summary: Получить информацию о кошельке
+      description: Возвращает список счетов пользователя с их балансами
+      responses:
+        "200":
+          description: Информация о кошельке
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        "401":
+          $ref: "#/components/responses/401"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallet/transactions:
+    get:
+      tags: [Кошелек]
+      summary: Получить историю транзакций
+      description: Возвращает историю транзакций, сгруппированную по датам. Сначала выдаются более новые траты. Пагинация распространяется на количество транзакций.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+      responses:
+        "200":
+          description: История транзакций
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [currentPage, totalPages, data]
+                properties:
+                  currentPage:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  data:
+                    $ref: "#/components/schemas/TransactionsByDate"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/401"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallet/topup:
+    post:
+      tags: [Кошелек]
+      summary: Пополнить счет
+      description: Пополнение счета. Есть лимит пополнения 1000 рублей в сутки.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopupRequest"
+      responses:
+        "200":
+          description: Счет успешно пополнен
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [balance]
+                properties:
+                  balance:
+                    type: integer
+                    description: Новый баланс в рублях
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        default:
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallet/transfers:
+    post:
+      tags: [Кошелек]
+      summary: Перевести средства
+      description: Перевод средств между счетами пользователей по телефону пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
+      responses:
+        "200":
+          description: Перевод выполнен успешно
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [balance]
+                properties:
+                  balance:
+                    type: integer
+                    description: Новый баланс отправителя в копейках
+        "400":
+          $ref: "#/components/responses/BadRequestError"
         "401":
           $ref: "#/components/responses/401"
         "404":

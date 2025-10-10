@@ -33,7 +33,9 @@ type Config struct {
 
 	RevokedTokens []string
 
-	InitialProductsData []models.Product
+	InitialProductsData      []*models.Product
+	InitialCategories        map[string]models.Category
+	InitialProductCategories map[string][]string
 
 	ServerOpts        ServerOpts
 	FeedbacksPath     string
@@ -49,22 +51,50 @@ func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
 			IdleTimeout:          60,
 			MaxRequestBodySizeMb: 1,
 		},
-		CreatedTokensPath: "data/createdTokens.csv",
+		CreatedTokensPath: "data/created_tokens.csv",
 	}
 
-	//products, err := getInitData[models.Product]("data/products.json", logger)
-	//if err != nil {
-	//	return nil, fmt.Errorf("can't get initial products: %w", err)
-	//}
-	//
-	//cfg.InitialProductsData = products
-	//
-	//bannedTokens, err := getInitData[string]("data/blocked_tokens.txt", logger)
-	//if err != nil {
-	//	return nil, fmt.Errorf("can't get banned tokens: %w", err)
-	//}
-	//
-	//cfg.RevokedTokens = bannedTokens
+	// Загружаем товары и преобразуем в указатели
+	products, err := getInitData[models.Product]("data/products.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load products from file: %v", err)
+		cfg.InitialProductsData = []*models.Product{}
+	} else {
+		cfg.InitialProductsData = make([]*models.Product, len(products))
+		for i := range products {
+			cfg.InitialProductsData[i] = &products[i]
+		}
+	}
+
+	// Загружаем категории и преобразуем в map
+	categories, err := getInitData[models.Category]("data/categories.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load categories from file: %v", err)
+		cfg.InitialCategories = map[string]models.Category{}
+	} else {
+		cfg.InitialCategories = make(map[string]models.Category)
+		for _, category := range categories {
+			cfg.InitialCategories[category.ID] = category
+		}
+	}
+
+	// Загружаем связки товаров и категорий
+	productCategories, err := getProductCategories("data/product_categories.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load product categories from file: %v", err)
+		cfg.InitialProductCategories = map[string][]string{}
+	} else {
+		cfg.InitialProductCategories = productCategories
+	}
+
+	// Загружаем заблокированные токены
+	bannedTokens, err := getInitData[string]("data/blocked_tokens.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load banned tokens from file: %v", err)
+		cfg.RevokedTokens = []string{}
+	} else {
+		cfg.RevokedTokens = bannedTokens
+	}
 
 	opts := env.Options{
 		FuncMap: map[reflect.Type]env.ParserFunc{
@@ -73,7 +103,7 @@ func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
 		},
 	}
 
-	err := env.ParseWithOptions(cfg, opts)
+	err = env.ParseWithOptions(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("env.ParseWithOptions: %w", err)
 	}
@@ -143,7 +173,7 @@ func ParseRSAPublicKey(content []byte) (*rsa.PublicKey, error) {
 }
 
 type loadable interface {
-	string | models.Product
+	string | models.Product | models.Category
 }
 
 func getInitData[T loadable](filePath string, logger *zap.SugaredLogger) ([]T, error) {
@@ -164,6 +194,31 @@ func getInitData[T loadable](filePath string, logger *zap.SugaredLogger) ([]T, e
 	}
 
 	var data []T
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+func getProductCategories(filePath string, logger *zap.SugaredLogger) (map[string][]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing data file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data map[string][]string
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}

@@ -63,6 +63,13 @@ type TokenService interface {
 	GenerateToken(ctx context.Context, username string, isTeacher bool) (string, error)
 }
 
+type WalletService interface {
+	GetWallet(ctx context.Context) (*models.Wallet, error)
+	GetTransactions(ctx context.Context, page, pageSize int) (*models.TransactionsResponse, error)
+	TopupAccount(ctx context.Context, req models.TopupRequest) (*models.TopupResponse, error)
+	TransferMoney(ctx context.Context, req models.TransferRequest) (*models.TransferResponse, error)
+}
+
 type Router struct {
 	*http.Server
 	router *http.ServeMux
@@ -73,6 +80,7 @@ type Router struct {
 	cartService     CartService
 	orderService    OrderService
 	tokenService    TokenService
+	walletService   WalletService
 	fileSaver       FileSaver
 
 	logger *zap.SugaredLogger
@@ -86,6 +94,7 @@ func NewRouter(
 	cartService CartService,
 	orderService OrderService,
 	tokenService TokenService,
+	walletService WalletService,
 	fileSaver FileSaver,
 	authMiddleware func(next http.HandlerFunc) http.HandlerFunc,
 	logger *zap.SugaredLogger,
@@ -106,6 +115,7 @@ func NewRouter(
 		cartService:     cartService,
 		orderService:    orderService,
 		tokenService:    tokenService,
+		walletService:   walletService,
 		logger:          logger,
 		fileSaver:       fileSaver,
 	}
@@ -144,6 +154,12 @@ func NewRouter(
 	uploadsDir := http.Dir("data/uploads")
 	innerRouter.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(uploadsDir)))
 	innerRouter.HandleFunc("POST /uploads", authMiddleware(appRouter.saveFile))
+
+	// Wallet routes
+	innerRouter.HandleFunc("GET /wallet", authMiddleware(appRouter.getWallet))
+	innerRouter.HandleFunc("GET /wallet/transactions", authMiddleware(appRouter.getTransactions))
+	innerRouter.HandleFunc("POST /wallet/topup", authMiddleware(appRouter.topupAccount))
+	innerRouter.HandleFunc("POST /wallet/transfers", authMiddleware(appRouter.transferMoney))
 
 	innerRouter.HandleFunc("GET /", func(writer http.ResponseWriter, request *http.Request) {
 		http.ServeFile(writer, request, "redoc-static.html")
@@ -699,4 +715,97 @@ func getPaginationParameter(request *http.Request, parameterName string, default
 	}
 
 	return value, nil
+}
+
+// Wallet handlers
+func (r *Router) getWallet(writer http.ResponseWriter, request *http.Request) {
+	wallet, err := r.walletService.GetWallet(request.Context())
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("GetWallet: %w", err))
+		return
+	}
+
+	buf, err := json.Marshal(wallet)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) getTransactions(writer http.ResponseWriter, request *http.Request) {
+	page, err := getPaginationParameter(request, "page", 1)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		return
+	}
+
+	pageSize, err := getPaginationParameter(request, "pageSize", models.DefaultPageSize)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		return
+	}
+
+	transactions, err := r.walletService.GetTransactions(request.Context(), page, pageSize)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("GetTransactions: %w", err))
+		return
+	}
+
+	buf, err := json.Marshal(transactions)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) topupAccount(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.TopupRequest
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		return
+	}
+
+	response, err := r.walletService.TopupAccount(request.Context(), requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("TopupAccount: %w", err))
+		return
+	}
+
+	buf, err := json.Marshal(response)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) transferMoney(writer http.ResponseWriter, request *http.Request) {
+	var requestBody models.TransferRequest
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		return
+	}
+
+	response, err := r.walletService.TransferMoney(request.Context(), requestBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("TransferMoney: %w", err))
+		return
+	}
+
+	buf, err := json.Marshal(response)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
 }

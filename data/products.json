@@ -1,0 +1,502 @@
+[
+  {
+    "id": "apple-001",
+    "image": "http://localhost/uploads/eats-jxl/apple.jxl",
+    "name": "Яблоко",
+    "weight": 200,
+    "price": 45,
+    "rating": 4.5,
+    "description": "Сочные и хрустящие яблоки, богатые витаминами и клетчаткой. Отличный выбор для здорового перекуса.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Анна",
+        "createdAt": "2024-01-15T10:30:00Z",
+        "content": "Очень вкусные и свежие яблоки",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "bread-002",
+    "image": "http://localhost/uploads/eats-jxl/bread.jxl",
+    "name": "Хлеб",
+    "weight": 500,
+    "price": 65,
+    "rating": 4.3,
+    "description": "Свежий пшеничный хлеб, выпеченный по традиционному рецепту. Идеально подходит для завтрака и обедов.",
+    "discount": 10,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Михаил",
+        "createdAt": "2024-01-16T08:15:00Z",
+        "content": "Ароматный и вкусный хлеб",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "milk-003",
+    "image": "http://localhost/uploads/eats-jxl/milk.jxl",
+    "name": "Молоко",
+    "weight": 1000,
+    "price": 85,
+    "rating": 4.7,
+    "description": "Свежее коровье молоко высшего качества, богатое кальцием и белком. Необходимый продукт для всей семьи.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Елена",
+        "createdAt": "2024-01-17T12:30:00Z",
+        "content": "Отличное молоко, всегда свежее",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "water-004",
+    "image": "http://localhost/uploads/eats-jxl/water.jxl",
+    "name": "Вода",
+    "weight": 500,
+    "price": 35,
+    "rating": 4.2,
+    "description": "Чистая питьевая вода в удобной бутылке. Отлично утоляет жажду и подходит для ежедневного употребления.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Дмитрий",
+        "createdAt": "2024-01-18T14:20:00Z",
+        "content": "Чистая и вкусная вода",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "butter-005",
+    "image": "http://localhost/uploads/eats-jxl/butter.jxl",
+    "name": "Масло сливочное",
+    "weight": 200,
+    "price": 120,
+    "rating": 4.6,
+    "description": "Натуральное сливочное масло из свежих сливок. Идеально для приготовления блюд и бутербродов.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Ольга",
+        "createdAt": "2024-01-19T09:45:00Z",
+        "content": "Качественное масло, рекомендую",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "cheese-006",
+    "image": "http://localhost/uploads/eats-jxl/cheese.jxl",
+    "name": "Сыр",
+    "weight": 150,
+    "price": 95,
+    "rating": 4.4,
+    "description": "Ароматный твердый сыр, произведенный по традиционной технологии. Отлично подходит для закусок и салатов.",
+    "discount": 15,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Игорь",
+        "createdAt": "2024-01-20T16:10:00Z",
+        "content": "Вкусный сыр, хорошее качество",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "eggs-007",
+    "image": "http://localhost/uploads/eats-jxl/eggs.jxl",
+    "name": "Яйца",
+    "weight": 600,
+    "price": 75,
+    "rating": 4.5,
+    "description": "Свежие куриные яйца от кур свободного выгула. Богаты белком и витаминами, идеальны для завтрака.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Татьяна",
+        "createdAt": "2024-01-21T11:30:00Z",
+        "content": "Свежие яйца, всегда беру здесь",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "orange-008",
+    "image": "http://localhost/uploads/eats-jxl/orange.jxl",
+    "name": "Апельсин",
+    "weight": 250,
+    "price": 55,
+    "rating": 4.3,
+    "description": "Сочные апельсины, богатые витамином C. Отлично подходят для укрепления иммунитета и освежающих напитков.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Сергей",
+        "createdAt": "2024-01-22T13:15:00Z",
+        "content": "Сочные и сладкие апельсины",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "kiwi-009",
+    "image": "http://localhost/uploads/eats-jxl/kiwifruit.jxl",
+    "name": "Киви",
+    "weight": 100,
+    "price": 40,
+    "rating": 4.4,
+    "description": "Экзотический фрукт киви с нежным кисло-сладким вкусом. Богат витаминами и антиоксидантами.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Мария",
+        "createdAt": "2024-01-23T10:45:00Z",
+        "content": "Очень вкусный киви, свежий",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "persimmon-010",
+    "image": "http://localhost/uploads/eats-jxl/persimmon.jxl",
+    "name": "Хурма",
+    "weight": 300,
+    "price": 80,
+    "rating": 4.6,
+    "description": "Сладкая и сочная хурма с медовым вкусом. Отличный источник витаминов и минералов в зимний период.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Александр",
+        "createdAt": "2024-01-24T15:20:00Z",
+        "content": "Невероятно сладкая хурма",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "lime-lemon-011",
+    "image": "http://localhost/uploads/eats-jxl/lime-and-lemon.jxl",
+    "name": "Лайм и лимон",
+    "weight": 200,
+    "price": 65,
+    "rating": 4.2,
+    "description": "Свежие лайм и лимон для приготовления освежающих напитков и кулинарных блюд. Богаты витамином C.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Наталья",
+        "createdAt": "2024-01-25T12:00:00Z",
+        "content": "Качественные цитрусы",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "croissant-012",
+    "image": "http://localhost/uploads/eats-jxl/croissant.jxl",
+    "name": "Круассан",
+    "weight": 80,
+    "price": 45,
+    "rating": 4.5,
+    "description": "Свежий слоеный круассан с хрустящей корочкой. Идеально подходит для утреннего кофе.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Екатерина",
+        "createdAt": "2024-01-26T08:30:00Z",
+        "content": "Вкусный круассан, как в Париже",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "donut-013",
+    "image": "http://localhost/uploads/eats-jxl/coin-donut.jxl",
+    "name": "Круглосан",
+    "weight": 60,
+    "price": 35,
+    "rating": 4.3,
+    "description": "Новый необычный дессерт, свежий взгляд на привычное лакомство. Отличное лакомство для детей и взрослых.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Владимир",
+        "createdAt": "2024-01-27T14:45:00Z",
+        "content": "Мягкий и сладкий пончик",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "pie-014",
+    "image": "http://localhost/uploads/eats-jxl/pie.jxl",
+    "name": "Пирог",
+    "weight": 400,
+    "price": 180,
+    "rating": 4.7,
+    "description": "Домашний пирог с начинкой, приготовленный по традиционному рецепту. Отличное угощение для всей семьи.",
+    "discount": 20,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Людмила",
+        "createdAt": "2024-01-28T16:20:00Z",
+        "content": "Превосходный пирог, как у бабушки",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "ice-cream-015",
+    "image": "http://localhost/uploads/eats-jxl/ice-cream.jxl",
+    "name": "Мороженое",
+    "weight": 100,
+    "price": 55,
+    "rating": 4.6,
+    "description": "Кремовое мороженое с натуральными ингредиентами. Идеально для жаркого дня.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Андрей",
+        "createdAt": "2024-01-29T18:00:00Z",
+        "content": "Очень вкусное мороженое",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "kit-kat-016",
+    "image": "http://localhost/uploads/eats-jxl/kit-kat.jxl",
+    "name": "Kit-Kat",
+    "weight": 45,
+    "price": 65,
+    "rating": 4.4,
+    "description": "Хрустящие вафли в шоколаде. Классический вкус, который любят все.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Ирина",
+        "createdAt": "2024-01-30T20:15:00Z",
+        "content": "Любимые конфеты с детства",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "berry-drink-017",
+    "image": "http://localhost/uploads/eats-jxl/berry-drink.jxl",
+    "name": "Морс",
+    "weight": 330,
+    "price": 75,
+    "rating": 4.3,
+    "description": "Освежающий ягодный напиток с натуральными ингредиентами. Отлично утоляет жажду.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Павел",
+        "createdAt": "2024-01-31T11:30:00Z",
+        "content": "Вкусный и полезный напиток",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "cherry-juice-018",
+    "image": "http://localhost/uploads/eats-jxl/cherry-juice.jxl",
+    "name": "Вишневый сок",
+    "weight": 250,
+    "price": 85,
+    "rating": 4.5,
+    "description": "Натуральный вишневый сок без консервантов. Богат антиоксидантами и витаминами.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Светлана",
+        "createdAt": "2024-02-01T13:45:00Z",
+        "content": "Отличный сок, натуральный вкус",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "shrimp-019",
+    "image": "http://localhost/uploads/eats-jxl/wrapped-with-shrimp.jxl",
+    "name": "Ролл с креветками",
+    "weight": 200,
+    "price": 320,
+    "rating": 4.8,
+    "description": "Вкусные креветки в хрустящей панировке. Свежие овощи и лаваш. Отличная закуска или основное блюдо.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Денис",
+        "createdAt": "2024-02-02T19:20:00Z",
+        "content": "Превосходные креветки, очень вкусно",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "cleaning-020",
+    "image": "http://localhost/uploads/eats-jxl/cleaning.jxl",
+    "name": "Средства для уборки",
+    "weight": 500,
+    "price": 120,
+    "rating": 4.2,
+    "description": "Эффективное средство для уборки дома. Безопасно для здоровья и окружающей среды.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Галина",
+        "createdAt": "2024-02-03T10:15:00Z",
+        "content": "Хорошее средство, отлично отмывает",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "glasses-021",
+    "image": "http://localhost/uploads/eats-jxl/glasses.jxl",
+    "name": "Стаканы",
+    "weight": 300,
+    "price": 150,
+    "rating": 4.4,
+    "description": "Набор красивых стаканов для дома. Подходят для любых напитков.",
+    "discount": 25,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Роман",
+        "createdAt": "2024-02-04T15:30:00Z",
+        "content": "Качественные стаканы, красивые",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "pan-022",
+    "image": "http://localhost/uploads/eats-jxl/pan.jxl",
+    "name": "Сковорода",
+    "weight": 800,
+    "price": 450,
+    "rating": 4.6,
+    "description": "Качественная сковорода с антипригарным покрытием. Идеальна для приготовления различных блюд.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Валентина",
+        "createdAt": "2024-02-05T12:00:00Z",
+        "content": "Отличная сковорода, ничего не пригорает",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "happy-lights-023",
+    "image": "http://localhost/uploads/eats-jxl/happy-lights.jxl",
+    "name": "Гирлянда",
+    "weight": 200,
+    "price": 180,
+    "rating": 4.3,
+    "description": "Декоративная световая гирлянда для создания уютной атмосферы дома.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Юлия",
+        "createdAt": "2024-02-06T17:45:00Z",
+        "content": "Красивая гирлянда, создает уют",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "antirepelent-024",
+    "image": "http://localhost/uploads/eats-jxl/antirepelent.jxl",
+    "name": "Репеллент",
+    "weight": 150,
+    "price": 95,
+    "rating": 4.1,
+    "description": "Эффективное средство от насекомых. Безопасно для детей и домашних животных.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 4,
+        "author": "Артем",
+        "createdAt": "2024-02-07T14:20:00Z",
+        "content": "Хорошо защищает от комаров",
+        "images": []
+      }
+    ],
+    "available": true
+  },
+  {
+    "id": "echpochmak-025",
+    "image": "http://localhost/uploads/eats-jxl/echpochmak.jxl",
+    "name": "Эчпочмак",
+    "weight": 120,
+    "price": 85,
+    "rating": 4.7,
+    "description": "Традиционная татарская выпечка с мясной начинкой. Вкусное и сытное блюдо.",
+    "discount": 0,
+    "reviews": [
+      {
+        "rating": 5,
+        "author": "Рустам",
+        "createdAt": "2024-02-08T11:15:00Z",
+        "content": "Настоящий эчпочмак, как дома",
+        "images": []
+      }
+    ],
+    "available": true
+  }
+]

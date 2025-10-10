@@ -1,0 +1,9 @@
+{
+  "fruits": ["apple-001", "orange-008", "kiwi-009", "persimmon-010", "lime-lemon-011"],
+  "bakery": ["bread-002", "croissant-012", "donut-013", "pie-014", "echpochmak-025"],
+  "dairy": ["milk-003", "butter-005", "cheese-006", "eggs-007"],
+  "drinks": ["water-004", "berry-drink-017", "cherry-juice-018"],
+  "sweets": ["donut-013", "pie-014", "ice-cream-015", "kit-kat-016"],
+  "food": ["shrimp-019", "echpochmak-025", "pie-014"],
+  "household": ["cleaning-020", "glasses-021", "pan-022", "happy-lights-023", "antirepelent-024"]
+}

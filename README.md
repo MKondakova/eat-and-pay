@@ -6,6 +6,37 @@
 
 Полное описание всех методов доступно в OpenAPI [спецификации](api/openapi/spec.yaml).
 
+## 🚀 Установка и запуск
+
+Для работы требуется установленный **nginx** и **Docker**.
+
+1. Настроить nginx:
+
+   ```shell
+   cp eats-pages.ddns.net.conf /etc/nginx/sites-available/eats-pages.ddns.net.conf
+    
+   sudo ln -s /etc/nginx/sites-available/eats-pages.ddns.net.conf /etc/nginx/sites-enabled/eats-pages.ddns.net.conf
+    
+   sudo nginx -t
+   sudo nginx -s reload
+   ```
+
+2. Собрать и запустить контейнер (приложение работает на порту `8080` внутри контейнера):
+
+   ```shell
+   docker build . -t eats-pages-image
+    
+   docker rm -f eats-pages-app 
+
+   docker run --env-file ./.env \
+      -v "data:/root/data" \
+      --restart always \
+      -p 8081:8080 \
+      -d --name eats-pages-app eats-pages-image:latest
+   ```
+
+---
+
 ## 📊 Структура данных
 
 Приложение загружает начальные данные из JSON файлов в папке `data/`.

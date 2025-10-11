@@ -5,7 +5,6 @@ package service
 import (
 	"cmp"
 	"context"
-	"eats-backend/internal/models"
 	"errors"
 	"fmt"
 	"maps"
@@ -15,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	api "eats-backend/api/generated"
+	"eats-backend/internal/models"
 )
 
 type FavouritesService interface {
@@ -27,8 +26,6 @@ type FavouritesService interface {
 const defaultPageSize = 20
 
 type ProductsService struct {
-	api.UnimplementedHandler
-
 	favourites FavouritesService
 
 	products            []*models.Product

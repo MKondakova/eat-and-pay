@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -26,6 +27,7 @@ type Application struct {
 	userData          *service.UserData
 	walletService     *service.WalletService
 	fileSaver         *storage.Storage
+	backupService     *service.BackupService
 	logger            *zap.SugaredLogger
 
 	errChan chan error
@@ -51,6 +53,13 @@ func (a *Application) Start(ctx context.Context) error {
 	if err := a.initRouter(ctx); err != nil {
 		return err
 	}
+
+	// Запускаем сервис бэкапа в отдельной горутине
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		a.backupService.Start(ctx)
+	}()
 
 	return nil
 }
@@ -145,8 +154,11 @@ func (a *Application) initLogger() error {
 
 func (a *Application) initServices() error {
 	a.addressService = service.NewAddressService()
-	a.favouritesService = service.NewFavouritesService()
-	a.userData = service.NewUserData()
+
+	// Инициализируем сервисы с данными из конфига
+	a.favouritesService = service.NewFavouritesService(a.cfg.InitialFavourites)
+	a.userData = service.NewUserData(a.cfg.InitialUserProfiles)
+
 	a.fileSaver = storage.NewStorage(a.logger, "data/uploads")
 	a.productService = service.NewProductsService(
 		a.favouritesService,
@@ -155,10 +167,20 @@ func (a *Application) initServices() error {
 		a.cfg.InitialCategories,
 	)
 
-	a.cartService = service.NewCart(a.productService, a.logger)
-	a.orderService = service.NewOrderService(a.addressService, a.cartService)
+	a.cartService = service.NewCart(a.productService, a.logger, a.cfg.InitialCartItems)
+	a.orderService = service.NewOrderService(a.addressService, a.cartService, a.cfg.InitialOrders)
 	a.tokenService = service.NewTokenService(a.cfg.PrivateKey, a.cfg.CreatedTokensPath)
-	a.walletService = service.NewWalletService()
+	a.walletService = service.NewWalletService(a.userData)
+
+	// Инициализируем сервис бэкапа (каждые 24 часа)
+	a.backupService = service.NewBackupService(a.logger, "data", 24*time.Hour)
+
+	// Регистрируем все сервисы для бэкапа
+	a.backupService.RegisterBackupable(a.userData)
+	a.backupService.RegisterBackupable(a.cartService)
+	a.backupService.RegisterBackupable(a.favouritesService)
+	a.backupService.RegisterBackupable(a.orderService)
+	a.backupService.RegisterBackupable(a.walletService)
 
 	return nil
 }

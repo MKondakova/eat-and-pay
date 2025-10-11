@@ -31,9 +31,9 @@ type OrderService struct {
 	mux sync.RWMutex
 }
 
-func NewOrderService(addressService AddressChecker, cartService CartService) *OrderService {
+func NewOrderService(addressService AddressChecker, cartService CartService, orders map[string][]*models.Order) *OrderService {
 	return &OrderService{
-		orders:         make(map[string][]*models.Order),
+		orders:         orders,
 		addressService: addressService,
 		cartService:    cartService,
 	}
@@ -147,4 +147,53 @@ func formatRu(t time.Time) string {
 		t.Hour(),
 		t.Minute(),
 	)
+}
+
+// GetBackupData возвращает данные для бэкапа
+func (s *OrderService) GetBackupData() interface{} {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// Создаем копию данных для бэкапа
+	backupData := make(map[string][]*models.Order)
+	for userID, orders := range s.orders {
+		backupOrders := make([]*models.Order, len(orders))
+		for i, order := range orders {
+			// Создаем копию заказа
+			backupOrder := &models.Order{
+				ID:            order.ID,
+				Status:        order.Status,
+				Address:       order.Address,
+				OrderPrice:    order.OrderPrice,
+				DeliveryPrice: order.DeliveryPrice,
+				TotalPrice:    order.TotalPrice,
+				TotalItems:    order.TotalItems,
+				Items:         make([]models.OrderItem, len(order.Items)),
+				CreatedAt:     order.CreatedAt,
+				DeliveryDate:  order.DeliveryDate,
+			}
+
+			// Копируем элементы заказа
+			for j, item := range order.Items {
+				backupOrder.Items[j] = models.OrderItem{
+					ID:       item.ID,
+					Image:    item.Image,
+					Name:     item.Name,
+					Weight:   item.Weight,
+					Price:    item.Price,
+					Quantity: item.Quantity,
+				}
+			}
+
+			backupOrders[i] = backupOrder
+		}
+		backupData[userID] = backupOrders
+	}
+
+	return backupData
+}
+
+// GetBackupFileName возвращает имя файла для бэкапа
+func (s *OrderService) GetBackupFileName() string {
+	return "orders"
 }

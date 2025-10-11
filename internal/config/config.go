@@ -37,9 +37,24 @@ type Config struct {
 	InitialCategories        map[string]models.Category
 	InitialProductCategories map[string][]string
 
+	// User data
+	InitialUserProfiles map[string]*models.UserProfile
+	InitialCartItems    map[string]map[string]*models.CartItem
+	InitialFavourites   map[string][]string
+	InitialOrders       map[string][]*models.Order
+	InitialWalletData   WalletData
+
 	ServerOpts        ServerOpts
 	FeedbacksPath     string
 	CreatedTokensPath string
+	Host              string
+}
+
+type WalletData struct {
+	Accounts     map[string]map[string]*models.Account `json:"accounts"`
+	Transactions map[string][]models.Transaction       `json:"transactions"`
+	DailyTopups  map[string]map[string]int             `json:"daily_topups"`
+	UserPhones   map[string]string                     `json:"user_phones"`
 }
 
 func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
@@ -52,6 +67,7 @@ func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
 			MaxRequestBodySizeMb: 1,
 		},
 		CreatedTokensPath: "data/created_tokens.csv",
+		Host:              "http://eats-pages.ddns.net/uploads/",
 	}
 
 	// Загружаем товары и преобразуем в указатели
@@ -62,6 +78,7 @@ func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
 	} else {
 		cfg.InitialProductsData = make([]*models.Product, len(products))
 		for i := range products {
+			products[i].Image = cfg.Host + products[i].Image
 			cfg.InitialProductsData[i] = &products[i]
 		}
 	}
@@ -94,6 +111,57 @@ func GetConfig(logger *zap.SugaredLogger) (*Config, error) {
 		cfg.RevokedTokens = []string{}
 	} else {
 		cfg.RevokedTokens = bannedTokens
+	}
+
+	// Загружаем профили пользователей
+	userProfiles, err := getUserProfiles("data/user_profiles.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load user profiles from file: %v", err)
+		cfg.InitialUserProfiles = make(map[string]*models.UserProfile)
+	} else {
+		cfg.InitialUserProfiles = userProfiles
+	}
+
+	// Загружаем корзины пользователей
+	cartItems, err := getCartItems("data/cart_items.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load cart items from file: %v", err)
+		cfg.InitialCartItems = make(map[string]map[string]*models.CartItem)
+	} else {
+		cfg.InitialCartItems = cartItems
+	}
+
+	// Загружаем избранное пользователей
+	favourites, err := getFavourites("data/user_favourites.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load favourites from file: %v", err)
+		cfg.InitialFavourites = make(map[string][]string)
+	} else {
+		cfg.InitialFavourites = favourites
+	}
+
+	// Загружаем заказы пользователей
+	orders, err := getOrders("data/orders.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load orders from file: %v", err)
+		cfg.InitialOrders = make(map[string][]*models.Order)
+	} else {
+		cfg.InitialOrders = orders
+	}
+
+	// Загружаем данные кошелька
+	walletData, err := getWalletData("data/wallet_data.json", logger)
+	if err != nil {
+		logger.Warnf("Can't load wallet data from file: %v", err)
+		// Инициализируем пустые данные кошелька
+		cfg.InitialWalletData = WalletData{
+			Accounts:     make(map[string]map[string]*models.Account),
+			Transactions: make(map[string][]models.Transaction),
+			DailyTopups:  make(map[string]map[string]int),
+			UserPhones:   make(map[string]string),
+		}
+	} else {
+		cfg.InitialWalletData = walletData
 	}
 
 	opts := env.Options{
@@ -221,6 +289,136 @@ func getProductCategories(filePath string, logger *zap.SugaredLogger) (map[strin
 	var data map[string][]string
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+// getUserProfiles загружает профили пользователей из файла
+func getUserProfiles(filePath string, logger *zap.SugaredLogger) (map[string]*models.UserProfile, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing user profiles file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data map[string]*models.UserProfile
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+// getCartItems загружает корзины пользователей из файла
+func getCartItems(filePath string, logger *zap.SugaredLogger) (map[string]map[string]*models.CartItem, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing cart items file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data map[string]map[string]*models.CartItem
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+// getFavourites загружает избранное пользователей из файла
+func getFavourites(filePath string, logger *zap.SugaredLogger) (map[string][]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing favourites file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data map[string][]string
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+// getOrders загружает заказы пользователей из файла
+func getOrders(filePath string, logger *zap.SugaredLogger) (map[string][]*models.Order, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing orders file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data map[string][]*models.Order
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return data, nil
+}
+
+// getWalletData загружает данные кошелька из файла
+func getWalletData(filePath string, logger *zap.SugaredLogger) (WalletData, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return WalletData{}, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Errorf("Error while closing wallet data file: %v", err)
+		}
+	}(file)
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return WalletData{}, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var data WalletData
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return WalletData{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
 	return data, nil

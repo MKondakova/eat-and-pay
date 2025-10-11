@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: Приложение для доставки еды
-  description: Приложение для доставки еды
+  description: Backend для ios приложения
   version: 1.0.0
 servers:
-  - url: 'http://localhost:8080'
+  - url: 'http://eats-pages.ddns.net'
 
 security:
   - bearerAuth: [ ]
@@ -358,6 +358,7 @@ paths:
                   example: "01.01.1999"
                 imageUri:
                   type: string
+                  description: Обязательно в формате jxl
       responses:
         "200":
           description: Успешно обновлено
@@ -793,6 +794,7 @@ paths:
         Загружает файл в хранилище. 
         Требуется авторизация через Bearer токен. 
         Максимальный размер файла — 5 МБ.
+        Обязательно в формате jxl
       security:
         - bearerAuth: []
       requestBody:
@@ -806,7 +808,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: Файл для загрузки
+                  description: Файл для загрузки, обязательно в формате jxl
       responses:
         "200":
           description: Файл успешно загружен
@@ -822,8 +824,6 @@ paths:
           $ref: "#/components/responses/401"
         "400":
           $ref: "#/components/responses/BadRequestError"
-        "404":
-          $ref: "#/components/responses/404"
         default:
           $ref: "#/components/responses/InternalServerError"
 

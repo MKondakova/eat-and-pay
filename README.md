@@ -13,7 +13,7 @@
 1. Настроить nginx:
 
    ```shell
-   cp eats-pages.ddns.net.conf /etc/nginx/sites-available/eats-pages.ddns.net.conf
+   sudo cp eats-pages.ddns.net.conf /etc/nginx/sites-available/eats-pages.ddns.net.conf
     
    sudo ln -s /etc/nginx/sites-available/eats-pages.ddns.net.conf /etc/nginx/sites-enabled/eats-pages.ddns.net.conf
     

@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"eats-backend/internal/models"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"eats-backend/internal/models"
 )
 
 type Storage struct {
@@ -65,11 +66,6 @@ func (s *Storage) SaveFile(w http.ResponseWriter, r *http.Request) (string, erro
 
 func (s *Storage) loadPart(reader *multipart.Reader, tempName string) (string, error) {
 	part, err := reader.NextPart()
-	if part != nil {
-		fmt.Println(err, part.FormName(), part.FileName())
-	} else {
-		fmt.Println(err, errors.Is(err, io.EOF))
-	}
 	if errors.Is(err, io.EOF) {
 		return "", err
 	}
@@ -82,9 +78,10 @@ func (s *Storage) loadPart(reader *multipart.Reader, tempName string) (string, e
 	}
 
 	ext := filepath.Ext(part.FileName())
-	if ext == "" {
-		ext = ".bin"
+	if ext != ".jxl" {
+		return "", fmt.Errorf("wrong extension, should be .jxl: %w", models.ErrBadRequest)
 	}
+
 	fullPath := filepath.Join(s.dir, tempName+ext)
 
 	dst, err := os.Create(fullPath)

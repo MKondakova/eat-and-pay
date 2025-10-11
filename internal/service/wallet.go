@@ -18,22 +18,44 @@ type WalletService struct {
 	transactions map[string][]models.Transaction       // userID -> transactions
 	dailyTopups  map[string]map[string]int             // userID -> date -> total amount
 	userPhones   map[string]string                     // userID -> phone
+	userData     *UserData                             // для получения номеров телефонов
 
 	mux sync.RWMutex
 }
 
-func NewWalletService() *WalletService {
+func NewWalletService(userData *UserData) *WalletService {
 	ws := &WalletService{
 		accounts:     make(map[string]map[string]*models.Account),
 		transactions: make(map[string][]models.Transaction),
 		dailyTopups:  make(map[string]map[string]int),
 		userPhones:   make(map[string]string),
+		userData:     userData,
 	}
 
 	// Инициализируем тестовые данные
 	ws.initTestData()
 
 	return ws
+}
+
+// getOrCreateUserPhone получает или создает номер телефона для пользователя
+func (ws *WalletService) getOrCreateUserPhone(ctx context.Context) (string, error) {
+	userID := models.ClaimsFromContext(ctx).ID
+
+	// Сначала проверяем в кэше userPhones
+	if phone, exists := ws.userPhones[userID]; exists {
+		return phone, nil
+	}
+
+	// Если нет в кэше, получаем из UserData
+	profile, err := ws.userData.GetProfile(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Сохраняем в кэш
+	ws.userPhones[userID] = profile.Phone
+	return profile.Phone, nil
 }
 
 func (ws *WalletService) initTestData() {
@@ -221,15 +243,8 @@ func (ws *WalletService) TransferMoney(ctx context.Context, req models.TransferR
 	}
 
 	// Находим получателя по номеру телефона
-	toUserID := ""
-	for userID, phone := range ws.userPhones {
-		if phone == req.ToPhoneNumber {
-			toUserID = userID
-			break
-		}
-	}
-
-	if toUserID == "" {
+	toUserID, found := ws.userData.GetUserIDByPhone(req.ToPhoneNumber)
+	if !found {
 		return nil, fmt.Errorf("%w: recipient not found", models.ErrNotFound)
 	}
 
@@ -274,7 +289,10 @@ func (ws *WalletService) TransferMoney(ctx context.Context, req models.TransferR
 	ws.transactions[fromUserID] = append(ws.transactions[fromUserID], fromTransaction)
 
 	// Транзакция получателя (положительная)
-	fromUserPhone := ws.userPhones[fromUserID]
+	fromUserPhone, err := ws.getOrCreateUserPhone(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sender phone: %w", err)
+	}
 	toTransaction := models.Transaction{
 		Amount: req.Amount,
 		Title:  fmt.Sprintf("Перевод от номера %s", fromUserPhone),
@@ -287,4 +305,72 @@ func (ws *WalletService) TransferMoney(ctx context.Context, req models.TransferR
 	ws.transactions[toUserID] = append(ws.transactions[toUserID], toTransaction)
 
 	return &models.TransferResponse{Balance: fromAccount.Balance}, nil
+}
+
+// GetBackupData возвращает данные для бэкапа
+func (ws *WalletService) GetBackupData() interface{} {
+	ws.mux.RLock()
+	defer ws.mux.RUnlock()
+
+	// Создаем структуру для бэкапа
+	backupData := struct {
+		Accounts     map[string]map[string]*models.Account `json:"accounts"`
+		Transactions map[string][]models.Transaction       `json:"transactions"`
+		DailyTopups  map[string]map[string]int             `json:"daily_topups"`
+		UserPhones   map[string]string                     `json:"user_phones"`
+	}{
+		Accounts:     make(map[string]map[string]*models.Account),
+		Transactions: make(map[string][]models.Transaction),
+		DailyTopups:  make(map[string]map[string]int),
+		UserPhones:   make(map[string]string),
+	}
+
+	// Копируем аккаунты
+	for userID, accounts := range ws.accounts {
+		backupAccounts := make(map[string]*models.Account)
+		for accountID, account := range accounts {
+			backupAccount := &models.Account{
+				ID:      account.ID,
+				Type:    account.Type,
+				Balance: account.Balance,
+			}
+			backupAccounts[accountID] = backupAccount
+		}
+		backupData.Accounts[userID] = backupAccounts
+	}
+
+	// Копируем транзакции
+	for userID, transactions := range ws.transactions {
+		backupTransactions := make([]models.Transaction, len(transactions))
+		for i, transaction := range transactions {
+			backupTransactions[i] = models.Transaction{
+				Amount: transaction.Amount,
+				Title:  transaction.Title,
+				Time:   transaction.Time,
+				Icon:   transaction.Icon,
+			}
+		}
+		backupData.Transactions[userID] = backupTransactions
+	}
+
+	// Копируем дневные пополнения
+	for userID, dailyTopups := range ws.dailyTopups {
+		backupDailyTopups := make(map[string]int)
+		for date, amount := range dailyTopups {
+			backupDailyTopups[date] = amount
+		}
+		backupData.DailyTopups[userID] = backupDailyTopups
+	}
+
+	// Копируем номера телефонов
+	for userID, phone := range ws.userPhones {
+		backupData.UserPhones[userID] = phone
+	}
+
+	return backupData
+}
+
+// GetBackupFileName возвращает имя файла для бэкапа
+func (ws *WalletService) GetBackupFileName() string {
+	return "wallet_data"
 }

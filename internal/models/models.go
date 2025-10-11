@@ -38,20 +38,6 @@ type PostReviewRequest struct {
 	Images  []string `json:"images"`
 }
 
-type ProductPageInfo struct {
-	ID                string  `json:"id"`
-	Name              string  `json:"name"`
-	Article           string  `json:"article"`
-	Category          string  `json:"category"`
-	Description       string  `json:"description"`
-	ImageURL          string  `json:"imageUrl"`
-	OldPrice          float64 `json:"oldPrice,omitempty"`
-	Price             float64 `json:"price"`
-	Rating            float64 `json:"rating,omitempty"`
-	WarehouseQuantity int     `json:"warehouseQuantity,omitempty"`
-	OrdersCount       int     `json:"ordersCount,omitempty"`
-}
-
 type ProductPreview struct {
 	ID          string  `json:"id"`
 	Image       string  `json:"image"`

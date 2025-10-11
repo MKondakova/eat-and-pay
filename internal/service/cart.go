@@ -24,9 +24,9 @@ type Cart struct {
 	mux sync.RWMutex
 }
 
-func NewCart(productService ProductService, logger *zap.SugaredLogger) *Cart {
+func NewCart(productService ProductService, logger *zap.SugaredLogger, items map[string]map[string]*models.CartItem) *Cart {
 	return &Cart{
-		items:          make(map[string]map[string]*models.CartItem),
+		items:          items,
 		productService: productService,
 		logger:         logger,
 	}
@@ -155,4 +155,31 @@ func (s *Cart) getCartResponseItem(ctx context.Context, item *models.CartItem) (
 	result.Image = product.Image
 
 	return result, nil
+}
+
+// GetBackupData возвращает данные для бэкапа
+func (s *Cart) GetBackupData() interface{} {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// Создаем копию данных для бэкапа
+	backupData := make(map[string]map[string]*models.CartItem)
+	for userID, cart := range s.items {
+		backupCart := make(map[string]*models.CartItem)
+		for productID, item := range cart {
+			backupItem := &models.CartItem{
+				ProductID: item.ProductID,
+				Quantity:  item.Quantity,
+			}
+			backupCart[productID] = backupItem
+		}
+		backupData[userID] = backupCart
+	}
+
+	return backupData
+}
+
+// GetBackupFileName возвращает имя файла для бэкапа
+func (s *Cart) GetBackupFileName() string {
+	return "cart_items"
 }

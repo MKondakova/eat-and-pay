@@ -101,7 +101,7 @@ func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize in
 	productsAmount := len(products)
 	totalPages := int(math.Ceil(float64(productsAmount) / float64(pageSize)))
 
-	paginationStart := (page - 1) * defaultPageSize
+	paginationStart := (page - 1) * pageSize
 
 	if paginationStart >= productsAmount {
 		return models.ProductsList{
@@ -111,7 +111,7 @@ func (s *ProductsService) GetProductsList(ctx context.Context, page, pageSize in
 		}, nil
 	}
 
-	paginationEnd := paginationStart + defaultPageSize
+	paginationEnd := paginationStart + pageSize
 	if paginationEnd > productsAmount {
 		paginationEnd = productsAmount
 	}

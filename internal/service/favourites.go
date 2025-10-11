@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
-	"eats-backend/internal/models"
 	"sync"
+
+	"eats-backend/internal/models"
 )
 
 type Favourites struct {
@@ -12,8 +13,18 @@ type Favourites struct {
 	mux sync.Mutex
 }
 
-func NewFavouritesService() *Favourites {
-	return &Favourites{favourites: make(map[string]map[string]struct{})}
+func NewFavouritesService(favouritesData map[string][]string) *Favourites {
+	result := &Favourites{favourites: make(map[string]map[string]struct{})}
+
+	// Преобразуем данные из списка строк в map[string]struct{}
+	for userID, favouriteList := range favouritesData {
+		result.favourites[userID] = make(map[string]struct{})
+		for _, productID := range favouriteList {
+			result.favourites[userID][productID] = struct{}{}
+		}
+	}
+
+	return result
 }
 
 func (s *Favourites) IsFavourite(ctx context.Context, id string) bool {
@@ -62,4 +73,27 @@ func (s *Favourites) RemoveFavourite(ctx context.Context, id string) {
 	}
 
 	delete(s.favourites[userID], id)
+}
+
+// GetBackupData возвращает данные для бэкапа
+func (s *Favourites) GetBackupData() interface{} {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// Создаем копию данных для бэкапа
+	backupData := make(map[string][]string)
+	for userID, favourites := range s.favourites {
+		favouriteList := make([]string, 0, len(favourites))
+		for productID := range favourites {
+			favouriteList = append(favouriteList, productID)
+		}
+		backupData[userID] = favouriteList
+	}
+
+	return backupData
+}
+
+// GetBackupFileName возвращает имя файла для бэкапа
+func (s *Favourites) GetBackupFileName() string {
+	return "user_favourites"
 }

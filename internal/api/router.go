@@ -163,6 +163,9 @@ func NewRouter(
 	innerRouter.HandleFunc("POST /wallet/topup", authMiddleware(loggingMiddleware(appRouter.topupAccount)))
 	innerRouter.HandleFunc("POST /wallet/transfers", authMiddleware(loggingMiddleware(appRouter.transferMoney)))
 
+	// Health check endpoint
+	innerRouter.HandleFunc("GET /health", appRouter.healthCheck)
+
 	innerRouter.HandleFunc("GET /", func(writer http.ResponseWriter, request *http.Request) {
 		http.ServeFile(writer, request, "redoc-static.html")
 	})
@@ -668,7 +671,18 @@ func (r *Router) createToken(writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 
-	r.sendResponse(writer, request, http.StatusOK, []byte(token))
+	responseBody := TokenResponse{
+		Token: token,
+	}
+
+	buf, err := json.Marshal(responseBody)
+	if err != nil {
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrInternalServer, err))
+
+		return
+	}
+
+	r.sendResponse(writer, request, http.StatusOK, buf)
 }
 
 func (r *Router) createTeacherToken(writer http.ResponseWriter, request *http.Request) {
@@ -810,4 +824,16 @@ func (r *Router) transferMoney(writer http.ResponseWriter, request *http.Request
 	}
 
 	r.sendResponse(writer, request, http.StatusOK, buf)
+}
+
+func (r *Router) healthCheck(writer http.ResponseWriter, _ *http.Request) {
+	response := map[string]string{
+		"status": "ok",
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+
+	buf, _ := json.Marshal(response)
+	_, _ = writer.Write(buf)
 }

@@ -2,8 +2,10 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -42,7 +44,8 @@ func runServer(
 		defer wgr.Done()
 
 		err := server.Serve(listener)
-		if err != nil {
+		// http.ErrServerClosed - это нормальная ситуация при graceful shutdown
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- fmt.Errorf("can't start http server: %w", err)
 		}
 	}()

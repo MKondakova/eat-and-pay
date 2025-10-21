@@ -231,3 +231,11 @@ type TransferRequest struct {
 type TransferResponse struct {
 	Balance int `json:"balance"` // Новый баланс отправителя в рублях
 }
+
+// WalletData структура для хранения и загрузки данных кошелька
+type WalletData struct {
+	Accounts     map[string]map[string]*Account `json:"accounts"`
+	Transactions map[string][]Transaction       `json:"transactions"`
+	DailyTopups  map[string]map[string]int      `json:"daily_topups"`
+	UserPhones   map[string]string              `json:"user_phones"`
+}

@@ -66,19 +66,21 @@ func (s *UserData) UpdateProfile(ctx context.Context, data models.UpdateUserRequ
 		return err
 	}
 
-	if _, err = url.ParseRequestURI(data.Image); err != nil {
-		return fmt.Errorf("%w: invalid image url: %w", models.ErrBadRequest, err)
-	}
+	if data.Image != "" {
+		if _, err = url.ParseRequestURI(data.Image); err != nil {
+			return fmt.Errorf("%w: invalid image url: %w", models.ErrBadRequest, err)
+		}
 
-	// Check if the URL points to a .jxl file
-	parsedURL, err := url.Parse(data.Image)
-	if err != nil {
-		return fmt.Errorf("%w: invalid image url: %w", models.ErrBadRequest, err)
-	}
+		// Check if the URL points to a .jxl file
+		parsedURL, err := url.Parse(data.Image)
+		if err != nil {
+			return fmt.Errorf("%w: invalid image url: %w", models.ErrBadRequest, err)
+		}
 
-	fileExt := strings.ToLower(filepath.Ext(parsedURL.Path))
-	if fileExt != ".jxl" {
-		return fmt.Errorf("%w: image must be a .jxl file", models.ErrBadRequest)
+		fileExt := strings.ToLower(filepath.Ext(parsedURL.Path))
+		if fileExt != ".jxl" {
+			return fmt.Errorf("%w: image must be a .jxl file", models.ErrBadRequest)
+		}
 	}
 
 	s.mux.Lock()

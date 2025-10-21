@@ -8,32 +8,55 @@ import (
 	"sync"
 	"time"
 
-	"eats-backend/internal/models"
 	"github.com/google/uuid"
+
+	"eats-backend/internal/models"
 )
 
+type ProfileService interface {
+	GetProfile(ctx context.Context) (*models.UserProfile, error)
+	GetUserIDByPhone(phone string) (string, bool)
+}
+
 type WalletService struct {
-	// В реальном приложении это были бы базы данных
 	accounts     map[string]map[string]*models.Account // userID -> accountID -> account
 	transactions map[string][]models.Transaction       // userID -> transactions
 	dailyTopups  map[string]map[string]int             // userID -> date -> total amount
 	userPhones   map[string]string                     // userID -> phone
-	userData     *UserData                             // для получения номеров телефонов
+	userData     ProfileService                        // для получения номеров телефонов
 
 	mux sync.RWMutex
 }
 
-func NewWalletService(userData *UserData) *WalletService {
+func NewWalletService(userData ProfileService, initialData models.WalletData) *WalletService {
 	ws := &WalletService{
-		accounts:     make(map[string]map[string]*models.Account),
-		transactions: make(map[string][]models.Transaction),
-		dailyTopups:  make(map[string]map[string]int),
-		userPhones:   make(map[string]string),
-		userData:     userData,
+		userData: userData,
 	}
 
-	// Инициализируем тестовые данные
-	ws.initTestData()
+	// Загружаем данные из initialData или инициализируем пустыми структурами
+	if initialData.Accounts != nil {
+		ws.accounts = initialData.Accounts
+	} else {
+		ws.accounts = make(map[string]map[string]*models.Account)
+	}
+
+	if initialData.Transactions != nil {
+		ws.transactions = initialData.Transactions
+	} else {
+		ws.transactions = make(map[string][]models.Transaction)
+	}
+
+	if initialData.DailyTopups != nil {
+		ws.dailyTopups = initialData.DailyTopups
+	} else {
+		ws.dailyTopups = make(map[string]map[string]int)
+	}
+
+	if initialData.UserPhones != nil {
+		ws.userPhones = initialData.UserPhones
+	} else {
+		ws.userPhones = make(map[string]string)
+	}
 
 	return ws
 }
@@ -58,39 +81,50 @@ func (ws *WalletService) getOrCreateUserPhone(ctx context.Context) (string, erro
 	return profile.Phone, nil
 }
 
-func (ws *WalletService) initTestData() {
-	// Тестовый пользователь с картой
-	userID := "4479081e-fd93-499c-bf8b-1ad190b052e6"
-	ws.userPhones[userID] = "123123"
-
+// initializeNewUser инициализирует нового пользователя с начальным счетом и фейковыми транзакциями
+func (ws *WalletService) initializeNewUser(userID string) {
+	// Создаем основную карту с начальным балансом 5000 рублей
 	cardID := uuid.New().String()
 	ws.accounts[userID] = map[string]*models.Account{
 		cardID: {
 			ID:      cardID,
 			Type:    models.AccountTypeCard,
-			Balance: 1500, // 1500 рублей
+			Balance: 3010,
 		},
 	}
 
-	// Добавляем несколько тестовых транзакций
+	// Добавляем фейковые транзакции для имитации истории
+	now := time.Now()
 	ws.transactions[userID] = []models.Transaction{
 		{
-			Amount: -250,
-			Title:  "Покупка в магазине",
-			Time:   time.Now().Add(-2 * time.Hour),
-			Icon:   "https://example.com/shop-icon.png",
+			Amount: 5000,
+			Title:  "Приветственный бонус",
+			Time:   now.Add(-72 * time.Hour), // 3 дня назад
 		},
 		{
-			Amount: -100,
-			Title:  "Кофе",
-			Time:   time.Now().Add(-1 * time.Hour),
-			Icon:   "https://example.com/coffee-icon.png",
+			Amount: -450,
+			Title:  "Покупка в супермаркете",
+			Time:   now.Add(-48 * time.Hour), // 2 дня назад
 		},
 		{
-			Amount: 500,
-			Title:  "Пополнение счета",
-			Time:   time.Now().Add(-30 * time.Minute),
-			Icon:   "https://example.com/topup-icon.png",
+			Amount: -150,
+			Title:  "Кофе в кафе",
+			Time:   now.Add(-36 * time.Hour), // 1.5 дня назад
+		},
+		{
+			Amount: -890,
+			Title:  "Заказ доставки еды",
+			Time:   now.Add(-24 * time.Hour), // 1 день назад
+		},
+		{
+			Amount: -320,
+			Title:  "Аптека",
+			Time:   now.Add(-12 * time.Hour), // 12 часов назад
+		},
+		{
+			Amount: -180,
+			Title:  "Транспорт",
+			Time:   now.Add(-6 * time.Hour), // 6 часов назад
 		},
 	}
 }
@@ -99,17 +133,27 @@ func (ws *WalletService) GetWallet(ctx context.Context) (*models.Wallet, error) 
 	userID := models.ClaimsFromContext(ctx).ID
 
 	ws.mux.RLock()
-	defer ws.mux.RUnlock()
-
 	userAccounts, exists := ws.accounts[userID]
+	ws.mux.RUnlock()
+
+	// Если у пользователя нет аккаунта, инициализируем его
 	if !exists {
-		return &models.Wallet{Accounts: []models.Account{}}, nil
+		ws.mux.Lock()
+		// Двойная проверка после получения блокировки на запись
+		if _, stillNotExists := ws.accounts[userID]; stillNotExists {
+			ws.initializeNewUser(userID)
+		}
+		userAccounts = ws.accounts[userID]
+		ws.mux.Unlock()
 	}
 
+	// Собираем список аккаунтов
+	ws.mux.RLock()
 	accounts := make([]models.Account, 0, len(userAccounts))
 	for _, account := range userAccounts {
 		accounts = append(accounts, *account)
 	}
+	ws.mux.RUnlock()
 
 	return &models.Wallet{Accounts: accounts}, nil
 }

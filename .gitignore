@@ -2,4 +2,6 @@
 /api/generated
 .idea
 /data/uploads
+backend
 notes.md
+.env

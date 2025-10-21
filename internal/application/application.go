@@ -64,31 +64,6 @@ func (a *Application) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error {
-	var appErr error
-
-	errWg := sync.WaitGroup{}
-
-	errWg.Add(1)
-
-	go func() {
-		defer errWg.Done()
-
-		for err := range a.errChan {
-			cancel()
-			a.logger.Error(err)
-			appErr = err
-		}
-	}()
-
-	<-ctx.Done()
-	a.wg.Wait()
-	close(a.errChan)
-	errWg.Wait()
-
-	return appErr
-}
-
 func (a *Application) Ready() bool {
 	return a.ready
 }
@@ -111,10 +86,22 @@ func (a *Application) HandleGracefulShutdown(ctx context.Context, cancel context
 	}()
 
 	<-ctx.Done()
+
+	a.logger.Info("Shutdown initiated, waiting for services to stop...")
 	a.wg.Wait()
+
+	// Выполняем финальный бекап перед завершением работы
+	a.logger.Info("Creating final backup before shutdown...")
+	if err := a.backupService.PerformBackup(); err != nil {
+		a.logger.Errorf("Failed to create final backup: %v", err)
+	} else {
+		a.logger.Info("Final backup completed successfully")
+	}
+
 	close(a.errChan)
 	errWg.Wait()
 
+	a.logger.Info("Graceful shutdown completed")
 	return appErr
 }
 
@@ -170,7 +157,7 @@ func (a *Application) initServices() error {
 	a.cartService = service.NewCart(a.productService, a.logger, a.cfg.InitialCartItems)
 	a.orderService = service.NewOrderService(a.addressService, a.cartService, a.cfg.InitialOrders)
 	a.tokenService = service.NewTokenService(a.cfg.PrivateKey, a.cfg.CreatedTokensPath)
-	a.walletService = service.NewWalletService(a.userData)
+	a.walletService = service.NewWalletService(a.userData, a.cfg.InitialWalletData)
 
 	// Инициализируем сервис бэкапа (каждые 24 часа)
 	a.backupService = service.NewBackupService(a.logger, "data", 24*time.Hour)

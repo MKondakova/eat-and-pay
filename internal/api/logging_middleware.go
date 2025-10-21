@@ -19,7 +19,7 @@ func (resp *responseCapture) Write(body []byte) (int, error) {
 }
 
 func (resp *responseCapture) WriteHeader(statusCode int) {
-	if resp.statusCode != 0 {
+	if resp.statusCode == 0 { // for write status code only once
 		resp.statusCode = statusCode
 		resp.writer.WriteHeader(statusCode)
 	}

@@ -52,7 +52,7 @@ func (bs *BackupService) Start(ctx context.Context) {
 	bs.logger.Info("Starting backup service")
 
 	// Выполняем первый бэкап сразу при запуске
-	if err := bs.performBackup(); err != nil {
+	if err := bs.PerformBackup(); err != nil {
 		bs.logger.Errorf("Initial backup failed: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func (bs *BackupService) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if err := bs.performBackup(); err != nil {
+			if err := bs.PerformBackup(); err != nil {
 				bs.logger.Errorf("Backup failed: %v", err)
 			}
 		case <-bs.stopChan:
@@ -80,8 +80,8 @@ func (bs *BackupService) Stop() {
 	close(bs.stopChan)
 }
 
-// performBackup выполняет бэкап всех зарегистрированных объектов
-func (bs *BackupService) performBackup() error {
+// PerformBackup выполняет бэкап всех зарегистрированных объектов
+func (bs *BackupService) PerformBackup() error {
 	bs.mu.RLock()
 	backupables := make([]Backupable, len(bs.backupables))
 	copy(backupables, bs.backupables)

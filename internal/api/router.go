@@ -9,17 +9,18 @@ import (
 	"strconv"
 	"time"
 
-	"eats-backend/internal/config"
-	"eats-backend/internal/models"
-
 	"github.com/rs/cors"
 	"go.uber.org/zap"
+
+	"eats-backend/internal/config"
+	"eats-backend/internal/models"
 )
 
 var (
 	errInvalidPaginationParameter = errors.New("invalid pagination parameter")
 	errEmptyID                    = errors.New("empty id")
 	errEmptyName                  = errors.New("empty name")
+	errJsonDecode                 = fmt.Errorf("%w: json body invalid", models.ErrBadRequest)
 )
 
 type FileSaver interface {
@@ -97,6 +98,7 @@ func NewRouter(
 	walletService WalletService,
 	fileSaver FileSaver,
 	authMiddleware func(next http.HandlerFunc) http.HandlerFunc,
+	loggingMiddleware func(next http.HandlerFunc) http.HandlerFunc,
 	logger *zap.SugaredLogger,
 ) *Router {
 	innerRouter := http.NewServeMux()
@@ -120,46 +122,46 @@ func NewRouter(
 		fileSaver:       fileSaver,
 	}
 
-	innerRouter.HandleFunc("GET /users/me", authMiddleware(appRouter.getUser))
-	innerRouter.HandleFunc("PUT /users/me", authMiddleware(appRouter.updateProfile))
-	innerRouter.HandleFunc("DELETE /users/me", authMiddleware(appRouter.deleteUser))
+	innerRouter.HandleFunc("GET /users/me", authMiddleware(loggingMiddleware(appRouter.getUser)))
+	innerRouter.HandleFunc("PUT /users/me", authMiddleware(loggingMiddleware(appRouter.updateProfile)))
+	innerRouter.HandleFunc("DELETE /users/me", authMiddleware(loggingMiddleware(appRouter.deleteUser)))
 
-	innerRouter.HandleFunc("POST /logout", authMiddleware(appRouter.logout))
+	innerRouter.HandleFunc("POST /logout", authMiddleware(loggingMiddleware(appRouter.logout)))
 
-	innerRouter.HandleFunc("GET /products", authMiddleware(appRouter.getProductsList))
-	innerRouter.HandleFunc("GET /products/{id}", authMiddleware(appRouter.getProductByID))
+	innerRouter.HandleFunc("GET /products", authMiddleware(loggingMiddleware(appRouter.getProductsList)))
+	innerRouter.HandleFunc("GET /products/{id}", authMiddleware(loggingMiddleware(appRouter.getProductByID)))
 
-	innerRouter.HandleFunc("POST /products/{id}/favourite", authMiddleware(appRouter.addFavourite))
-	innerRouter.HandleFunc("DELETE /products/{id}/favourite", authMiddleware(appRouter.deleteFavourite))
+	innerRouter.HandleFunc("POST /products/{id}/favourite", authMiddleware(loggingMiddleware(appRouter.addFavourite)))
+	innerRouter.HandleFunc("DELETE /products/{id}/favourite", authMiddleware(loggingMiddleware(appRouter.deleteFavourite)))
 
-	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(appRouter.addReview))
+	innerRouter.HandleFunc("POST /products/{id}/reviews", authMiddleware(loggingMiddleware(appRouter.addReview)))
 
-	innerRouter.HandleFunc("GET /categories", authMiddleware(appRouter.getCategories))
+	innerRouter.HandleFunc("GET /categories", authMiddleware(loggingMiddleware(appRouter.getCategories)))
 
-	innerRouter.HandleFunc("GET /cart", authMiddleware(appRouter.getCart))
-	innerRouter.HandleFunc("POST /cart/items", authMiddleware(appRouter.addToCart))
-	innerRouter.HandleFunc("DELETE /cart/items/{id}", authMiddleware(appRouter.removeFromCart))
+	innerRouter.HandleFunc("GET /cart", authMiddleware(loggingMiddleware(appRouter.getCart)))
+	innerRouter.HandleFunc("POST /cart/items", authMiddleware(loggingMiddleware(appRouter.addToCart)))
+	innerRouter.HandleFunc("DELETE /cart/items/{id}", authMiddleware(loggingMiddleware(appRouter.removeFromCart)))
 
-	innerRouter.HandleFunc("GET /orders", authMiddleware(appRouter.getOrders))
-	innerRouter.HandleFunc("POST /orders", authMiddleware(appRouter.makeOrder))
+	innerRouter.HandleFunc("GET /orders", authMiddleware(loggingMiddleware(appRouter.getOrders)))
+	innerRouter.HandleFunc("POST /orders", authMiddleware(loggingMiddleware(appRouter.makeOrder)))
 
-	innerRouter.HandleFunc("GET /addresses", authMiddleware(appRouter.getAddresses))
-	innerRouter.HandleFunc("POST /addresses", authMiddleware(appRouter.addAddress))
-	innerRouter.HandleFunc("PUT /addresses/{id}", authMiddleware(appRouter.updateAddress))
-	innerRouter.HandleFunc("DELETE /addresses/{id}", authMiddleware(appRouter.deleteAddress))
+	innerRouter.HandleFunc("GET /addresses", authMiddleware(loggingMiddleware(appRouter.getAddresses)))
+	innerRouter.HandleFunc("POST /addresses", authMiddleware(loggingMiddleware(appRouter.addAddress)))
+	innerRouter.HandleFunc("PUT /addresses/{id}", authMiddleware(loggingMiddleware(appRouter.updateAddress)))
+	innerRouter.HandleFunc("DELETE /addresses/{id}", authMiddleware(loggingMiddleware(appRouter.deleteAddress)))
 
-	innerRouter.HandleFunc("POST /createToken", authMiddleware(appRouter.createToken))
-	innerRouter.HandleFunc("POST /createTeacherToken", authMiddleware(appRouter.createTeacherToken))
+	innerRouter.HandleFunc("POST /createToken", authMiddleware(loggingMiddleware(appRouter.createToken)))
+	innerRouter.HandleFunc("POST /createTeacherToken", authMiddleware(loggingMiddleware(appRouter.createTeacherToken)))
 
 	uploadsDir := http.Dir("data/uploads")
 	innerRouter.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(uploadsDir)))
-	innerRouter.HandleFunc("POST /uploads", authMiddleware(appRouter.saveFile))
+	innerRouter.HandleFunc("POST /uploads", authMiddleware(loggingMiddleware(appRouter.saveFile)))
 
 	// Wallet routes
-	innerRouter.HandleFunc("GET /wallet", authMiddleware(appRouter.getWallet))
-	innerRouter.HandleFunc("GET /wallet/transactions", authMiddleware(appRouter.getTransactions))
-	innerRouter.HandleFunc("POST /wallet/topup", authMiddleware(appRouter.topupAccount))
-	innerRouter.HandleFunc("POST /wallet/transfers", authMiddleware(appRouter.transferMoney))
+	innerRouter.HandleFunc("GET /wallet", authMiddleware(loggingMiddleware(appRouter.getWallet)))
+	innerRouter.HandleFunc("GET /wallet/transactions", authMiddleware(loggingMiddleware(appRouter.getTransactions)))
+	innerRouter.HandleFunc("POST /wallet/topup", authMiddleware(loggingMiddleware(appRouter.topupAccount)))
+	innerRouter.HandleFunc("POST /wallet/transfers", authMiddleware(loggingMiddleware(appRouter.transferMoney)))
 
 	innerRouter.HandleFunc("GET /", func(writer http.ResponseWriter, request *http.Request) {
 		http.ServeFile(writer, request, "redoc-static.html")
@@ -340,7 +342,7 @@ func (r *Router) addReview(writer http.ResponseWriter, request *http.Request) {
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 
 		return
 	}
@@ -425,7 +427,7 @@ func (r *Router) updateProfile(writer http.ResponseWriter, request *http.Request
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 
 		return
 	}
@@ -462,7 +464,7 @@ func (r *Router) addAddress(writer http.ResponseWriter, request *http.Request) {
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 
 		return
 	}
@@ -489,7 +491,7 @@ func (r *Router) updateAddress(writer http.ResponseWriter, request *http.Request
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 
 		return
 	}
@@ -636,7 +638,7 @@ func (r *Router) makeOrder(writer http.ResponseWriter, request *http.Request) {
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 
 		return
 	}
@@ -767,7 +769,7 @@ func (r *Router) topupAccount(writer http.ResponseWriter, request *http.Request)
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 		return
 	}
 
@@ -791,7 +793,7 @@ func (r *Router) transferMoney(writer http.ResponseWriter, request *http.Request
 
 	err := json.NewDecoder(request.Body).Decode(&requestBody)
 	if err != nil {
-		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", models.ErrBadRequest, err))
+		r.sendErrorResponse(writer, request, fmt.Errorf("%w: %w", errJsonDecode, err))
 		return
 	}
 

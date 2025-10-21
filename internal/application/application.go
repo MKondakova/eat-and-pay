@@ -187,6 +187,7 @@ func (a *Application) initServices() error {
 
 func (a *Application) initRouter(ctx context.Context) error {
 	authMiddleware := api.NewAuthMiddleware(a.cfg.PublicKey, a.logger, a.cfg.RevokedTokens).JWTAuth
+	loggingMiddleware := api.NewLoggerMiddleware(a.logger).Middleware
 
 	router := api.NewRouter(
 		a.cfg.ServerOpts,
@@ -199,6 +200,7 @@ func (a *Application) initRouter(ctx context.Context) error {
 		a.walletService,
 		a.fileSaver,
 		authMiddleware,
+		loggingMiddleware,
 		a.logger,
 	)
 
